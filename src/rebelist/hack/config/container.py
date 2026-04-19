@@ -2,15 +2,14 @@ from jira import JIRA
 
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
 from rebelist.hack.commands.jira.services import TicketFactory
-from rebelist.hack.config.settings import AppSettings, UserSettings
+from rebelist.hack.config.settings import Settings
 from rebelist.hack.connectors import JiraGateway
 from rebelist.hack.connectors.agents import JiraTicketAgent
 
 
 class Container:
-    def __init__(self, app_settings: AppSettings, user_settings: UserSettings) -> None:
-        self.app_settings: AppSettings = app_settings
-        self.user_settings: UserSettings = user_settings
+    def __init__(self, settings: Settings) -> None:
+        self.settings: Settings = settings
         self.__jira: JiraGateway | None = None
         self.__create_jira_ticket_command: CreateJiraTicketCommand | None = None
         self.__ticket_factory: TicketFactory | None = None
@@ -20,18 +19,26 @@ class Container:
         """Jira connector instance."""
         instance = self.__jira
         if instance is None:
-            client = JIRA(self.app_settings.jira.host, token_auth=self.app_settings.jira.token)
-            instance = JiraGateway(client, settings=self.app_settings.jira)
+            host = self.settings.jira.host.strip()
+            token = self.settings.jira.token.strip()
+            if not host:
+                msg = 'Jira host is not configured.'
+                raise ValueError(msg)
+            if not token:
+                msg = 'Jira token is not configured.'
+                raise ValueError(msg)
+            client = JIRA(host, token_auth=token)
+            instance = JiraGateway(client)
             self.__jira = instance
 
         return instance
 
     @property
     def ticket_factory(self) -> TicketFactory:
-        """Jira gateway instance."""
+        """Build `Ticket` instances from agent output using user YAML settings."""
         instance = self.__ticket_factory
         if instance is None:
-            instance = TicketFactory(self.user_settings.jira)
+            instance = TicketFactory(self.settings.jira)
             self.__ticket_factory = instance
 
         return instance
@@ -41,7 +48,7 @@ class Container:
         """Create a jira ticket command instance."""
         instance = self.__create_jira_ticket_command
         if instance is None:
-            agent = JiraTicketAgent(self.app_settings.agent.model, self.user_settings.jira)
+            agent = JiraTicketAgent(self.settings.agent.model, self.settings.jira)
             instance = CreateJiraTicketCommand(self.ticket_factory, agent, self.jira_gateway)
             self.__create_jira_ticket_command = instance
 

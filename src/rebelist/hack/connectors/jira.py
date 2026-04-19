@@ -2,7 +2,6 @@ from typing import Any
 
 from jira import JIRA
 
-from rebelist.hack.config.settings import JiraSettings
 from rebelist.hack.models.jira import CustomFieldType, Ticket
 
 
@@ -28,7 +27,11 @@ class JiraTicketMapper:
                 case CustomFieldType.SELECT:
                     data[custom_field.field_id] = {'value': str(custom_field.value)}
                 case CustomFieldType.MULTI_SELECT:
-                    data[custom_field.field_id] = [{'value': item} for item in custom_field.value]
+                    raw = custom_field.value
+                    if isinstance(raw, str):
+                        data[custom_field.field_id] = [{'value': raw}]
+                    else:
+                        data[custom_field.field_id] = [{'value': item} for item in raw]
                 case CustomFieldType.TEXT:
                     data[custom_field.field_id] = custom_field.value
 
@@ -36,9 +39,8 @@ class JiraTicketMapper:
 
 
 class JiraGateway:
-    def __init__(self, client: JIRA, settings: JiraSettings) -> None:
+    def __init__(self, client: JIRA) -> None:
         self.__client = client
-        self.__settings = settings
 
     def add_ticket(self, ticket: Ticket) -> str:
         """Create a new jira ticket."""

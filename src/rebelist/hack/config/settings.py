@@ -1,44 +1,83 @@
+import os
+import shutil
 from functools import lru_cache
 from importlib import metadata
 from pathlib import Path
-from typing import Any, Final
+from typing import Annotated, Any, Final
 
-from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from yaml import safe_load
 
 from rebelist.hack.models.jira import CustomFieldType
 
 PACKAGE_NAME: Final[str] = 'rebelist-hack'
-PROJECT_ROOT: Final[str] = str(Path(__file__).resolve().parents[4])
 
 ############################################
-#              App Settings
+#              Components
 ############################################
 
+NonEmptyString = Annotated[str, Field(min_length=1)]
 
-class GeneralSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
 
+class GeneralSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     name: str
     version: str
 
 
-class AgentSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True, env_prefix='AGENT_')
-
-    model: str = ''
-
-
-class JiraSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True, env_prefix='JIRA_')
-
-    host: str = ''
-    token: str = ''
-    templates: str = ''
+class AgentSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    model: NonEmptyString
+    api_key_name: NonEmptyString
+    api_key: NonEmptyString
 
 
-class AppSettings(BaseSettings):
+class JiraTicketReporterSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    default: NonEmptyString
+
+
+class JiraIssueTypeSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    options: list[str]
+
+
+class JiraTicketFieldsSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    project: NonEmptyString
+    reporter: JiraTicketReporterSettings
+    issue_type: JiraIssueTypeSettings
+
+
+class JiraTicketCustomFieldSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    name: NonEmptyString
+    field_type: CustomFieldType
+    default: str | list[str] | None = None
+
+
+class JiraTicketTemplateSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    issue_type: str
+    template: str
+
+
+class JiraSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    host: NonEmptyString
+    token: NonEmptyString
+    fields: JiraTicketFieldsSettings
+    custom_fields: dict[str, JiraTicketCustomFieldSettings]
+    templates: list[JiraTicketTemplateSettings]
+
+
+############################################
+#              Root Settings
+############################################
+
+
+class Settings(BaseSettings):
     model_config = SettingsConfigDict(frozen=True)
 
     general: GeneralSettings
@@ -46,98 +85,32 @@ class AppSettings(BaseSettings):
     jira: JiraSettings
 
     @classmethod
-    def __build(cls) -> AppSettings:
-        """Build a fresh Settings instance.
+    def __build(cls) -> Settings:
+        """Build a fresh Settings instance from the local YAML config."""
+        config_file = Path.home() / '.config/hack/config.yaml'
 
-        Loads environment variables (if .env exists), reads application metadata, and constructs all configuration.
-        """
-        env_path = Path(f'{PROJECT_ROOT}/.env')
+        if not config_file.exists():
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            template_file = Path(__file__).parent / 'template.config.yaml'
+            shutil.copy(template_file, config_file)
 
-        if env_path.is_file():
-            load_dotenv(env_path)
-
-        version = metadata.version(PACKAGE_NAME)
-        name = PACKAGE_NAME.split('-')[1].lower()
-
-        return cls(
-            general=GeneralSettings(name=name, version=version),
-            agent=AgentSettings(),
-            jira=JiraSettings(),
-        )
-
-    @classmethod
-    @lru_cache(maxsize=1)
-    def instance(cls) -> AppSettings:
-        """Return a cached, lazily-initialized singleton Settings instance."""
-        return cls.__build()
-
-
-############################################
-#              User Settings
-############################################
-class JiraTicketReporterSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
-
-    default: str
-
-
-class JiraIssueTypeSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
-
-    description: str
-    options: list[str]
-
-
-class JiraTicketFieldsSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
-
-    project: str
-    summary: str | None = None
-    reporter: JiraTicketReporterSettings
-    issue_type: JiraIssueTypeSettings
-
-
-class JiraTicketCustomFieldSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
-
-    name: str
-    field_type: CustomFieldType
-    default: str | list[str] | None = None
-
-
-class JiraTicketTemplateSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True, str_strip_whitespace=True)
-
-    issue_type: str
-    template: str
-
-
-class JiraTicketSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True)
-
-    fields: JiraTicketFieldsSettings
-    custom_fields: dict[str, JiraTicketCustomFieldSettings]
-    description_templates: list[JiraTicketTemplateSettings]
-
-
-class UserSettings(BaseSettings):
-    model_config = SettingsConfigDict(frozen=True)
-
-    jira: JiraTicketSettings
-
-    @classmethod
-    def __build(cls) -> UserSettings:
-        """Build a fresh user settings instance."""
-        config_file = Path(f'{PROJECT_ROOT}/.hack/config.yaml')
         if not config_file.exists():
             raise FileNotFoundError(f'Config file not found: {config_file}')
 
         raw: dict[str, Any] = safe_load(config_file.read_text(encoding='utf-8'))
 
+        # Inject dynamic metadata not stored in YAML
+        version = metadata.version(PACKAGE_NAME)
+        name = PACKAGE_NAME.split('-')[1].lower()
+        raw['general'] = {'name': name, 'version': version}
+
         return cls(**raw)
 
     @classmethod
     @lru_cache(maxsize=1)
-    def instance(cls) -> UserSettings:
-        """Return a cached, lazily-initialized singleton UserSettings instance."""
-        return cls.__build()
+    def instance(cls) -> Settings:
+        """Return a cached, lazily-initialized singleton Settings instance."""
+        settings = cls.__build()
+        os.environ[settings.agent.api_key_name] = settings.agent.api_key
+
+        return settings

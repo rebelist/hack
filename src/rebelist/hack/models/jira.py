@@ -30,7 +30,7 @@ class CustomField(BaseModel):
 class DraftTicket(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    summary: Annotated[str, Field(default=None, description='Issue title.')]
+    summary: Annotated[str, Field(description='Issue title.')]
     issue_type: Annotated[str, Field(description='Category that defines the nature of the work item.')]
     description: Annotated[str, Field(description='Jira ticket description in Wiki Markup style.')]
 
@@ -41,7 +41,7 @@ class Ticket(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     project: Annotated[str, Field(description="Jira project key (e.g. 'WS').")]
-    summary: Annotated[str, Field(default=None, description='Ticket title or short summary.')]
+    summary: Annotated[str, Field(description='Ticket title or short summary.')]
     reporter: Annotated[str, Field(description='Jira username of the issue reporter.')]
     description: Annotated[str, Field(description='Description of the issue in Wiki style markup.')]
     issue_type: Annotated[

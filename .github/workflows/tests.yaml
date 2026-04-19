@@ -76,3 +76,4 @@ jobs:
         with:
           report_type: coverage
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: rebelist/hack

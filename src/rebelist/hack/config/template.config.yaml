@@ -1,0 +1,86 @@
+agent:
+  model: "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+  api_key_name: "OPENROUTER_API_KEY" # For ollama use a dummy value, for other providers see the README.md
+  api_key: "" # For ollama use a dummy value.
+
+jira:
+  host: "https://jira.example.com" # Jira API host.
+  token: "" # Jira API token.
+
+  fields:
+    project: "XX" # Jira project key.
+    reporter:
+      default: "doejohn" # A Jira username.
+    issue_type:
+      options: # List of the available issue types.
+        - "Bug"
+        - "User Story"
+
+  custom_fields:
+    teams:
+      name: "customfield_1"
+      field_type: "multi_select" # This field type expect multiple options from a multi select/drop down.
+      default: [ "Team A" ]
+    work_category:
+      name: "customfield_2"
+      field_type: "select"  # This field type expect an option from a select/drop down.
+      default: "Operational Tasks"
+    stakeholder:
+      name: "customfield_3"
+      field_type: "user" # This field type expect a username as value.
+      default: "doejohn"
+    story_points:
+      name: "customfield_4"
+      field_type: "text"  # This field type expect a text value.
+      default: "1"
+
+  templates: # Templates used for jira issue descriptions. In Wiki Markup style.
+    - issue_type: "User Story"
+      template: |
+        h2. Description
+
+        *As a* <type of user>, *I want* <some goal> *so that* <some reason>.
+
+        h2. Acceptance Criteria
+        # <Criteria 1>
+        # <Criteria 2>
+
+        h2. Other Stakeholder Approvals
+        * None
+
+        h2. Conducted Test
+        # <Short Description of Test # 1>
+        # <Short Description of Test # 2>
+
+        *Don't forget to check the definition of Done.*
+
+    - issue_type: "Bug"
+      template: |
+        h2. System
+        <Frontend, Database, Backend, etc.>
+
+        h2. Environment
+
+        * Device Model: < device >
+        * OS Version: < OS version >
+        * Browser + Version: < browser version >
+
+        h2. Expected Behaviour
+        <Please describe the expected behaviour. Include any relevant urls, screenshots or designs if available.>
+
+        h2. Actual Behaviour:
+        <Please describe what the current/actual occurring behaviour is.>
+
+        h2. Other Relevant Data / Info* (Optional)
+        * <Some description>
+
+        h2. Steps to Reproduce
+        (Include any relevant URLs, sample data, or screenshots):
+        # ..
+        # ..
+
+        h2. Fix Acceptance Criteria
+        # < Criteria 1 >
+        # < Criteria 2 >
+
+        *Don't forget to check the definition of Done.*

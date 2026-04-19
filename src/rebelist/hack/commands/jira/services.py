@@ -1,24 +1,22 @@
-from rebelist.hack.config.settings import JiraTicketSettings
+from rebelist.hack.config.settings import JiraSettings
 from rebelist.hack.models.jira import CustomField, CustomFieldType, DraftTicket, Ticket
 
 
 class TicketFactory:
-    def __init__(self, settings: JiraTicketSettings) -> None:
+    def __init__(self, settings: JiraSettings) -> None:
         self.__settings = settings
 
     def create(self, draft_ticket: DraftTicket) -> Ticket:
         """Create a new jira ticket with the given draft ticket."""
-        custom_fields: list[CustomField] = []
-
-        for alias, custom_field_settings in self.__settings.custom_fields.items():
-            custom_field = CustomField(
+        custom_fields = [
+            CustomField(
                 field_id=custom_field_settings.name,
                 field_type=CustomFieldType(custom_field_settings.field_type),
                 alias=alias,
                 value=custom_field_settings.default,
             )
-
-            custom_fields.append(custom_field)
+            for alias, custom_field_settings in self.__settings.custom_fields.items()
+        ]
 
         ticket = Ticket(
             project=self.__settings.fields.project,

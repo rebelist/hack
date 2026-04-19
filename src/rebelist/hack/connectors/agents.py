@@ -2,12 +2,12 @@ from textwrap import dedent
 
 from pydantic_ai import Agent, RunContext
 
-from rebelist.hack.config.settings import JiraTicketSettings
+from rebelist.hack.config.settings import JiraSettings
 from rebelist.hack.models.jira import DraftTicket
 
 
 class JiraTicketAgent:
-    def __init__(self, model: str, jira_ticket_settings: JiraTicketSettings) -> None:
+    def __init__(self, model: str, jira_ticket_settings: JiraSettings) -> None:
         self.__jira_ticket_settings = jira_ticket_settings
         self.__agent = Agent(model, output_type=DraftTicket)
         self.__agent.system_prompt(self.__build_system_prompt)
@@ -21,8 +21,7 @@ class JiraTicketAgent:
 
         issue_types = ', '.join(self.__jira_ticket_settings.fields.issue_type.options)
         descriptions = '\n'.join(
-            f'*{item.issue_type}*:\n```\n{item.template.strip()}\n```'
-            for item in self.__jira_ticket_settings.description_templates
+            f'*{item.issue_type}*:\n```\n{item.template.strip()}\n```' for item in self.__jira_ticket_settings.templates
         )
 
         system_prompt = (
@@ -55,7 +54,7 @@ class JiraTicketAgent:
 
         - Select the most appropriate `issue_type` based on the user’s intent.
         - Do NOT invent new issue types.
-        - Use ONLY one of: issue_types
+        - Use ONLY one of: {issue_types}
 
         ---
 
