@@ -1,0 +1,122 @@
+[project]
+name = "rebelist-hack"
+version = "0.1.0"
+description = "An internal CLI tool that automates boring tasks to optimise team productivity and standardise development workflows."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "jira>=3.10.5,<4.0.0",
+    "pydantic>=2.13.2,<3.0.0",
+    "pydantic-ai>=1.84.1,<2.0.0",
+    "pydantic-settings>=2.13.1,<3.0.0",
+    "python-dotenv>=1.2.2,<2.0.0",
+    "pyyaml>=6.0.3,<7.0.0",
+    "rich>=15.0.0,<16.0.0",
+    "typer>=0.24.1,<1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1,<5.0.0",
+    "pyright>=1.1.405,<2.0.0",
+    "pytest>=9.0.0,<10.0.0",
+    "pytest-cov>=7.1.0,<8.0.0",
+    "pytest-mock>=3.15.1,<4.0.0",
+    "ruff>=0.15.10,<1.0.0",
+]
+
+[project.scripts]
+hack = "rebelist.hack.console:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rebelist"]
+
+### pyright ###
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["src", "tests"]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownLambdaType = false
+exclude = [
+    "**/__pycache__"
+]
+
+### ruff ###
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "A", # Aesthetic rules (e.g., blank lines, comment formatting)
+    "E", # Errors (e.g., syntax errors, indentation issues)
+    "W", # Warnings (e.g., line length, trailing whitespace)
+    "F", # Pyflakes (e.g., unused imports, undefined variables)
+    "I", # Import rules (e.g., import order, unused imports)
+    "B", # Bugbear (e.g., potential bugs, mutable default arguments)
+    "C4", # McCabe complexity (e.g., function complexity)
+    "N", # Naming conventions (e.g., PEP8 naming standards)
+    "D", # Docstrings (e.g., missing docstrings, formatting issues)
+    "RUF100", # Mistakes (e.g., common mistakes or poor patterns)
+]
+ignore = [
+    "ANN", # Disable all type annotation-related checks
+    "PYI", # Disable checks for .pyi stub files
+    "PLR", # Disable Pylint rules related to typing
+    "D107", # Disable documentation on __init__ methods
+    "D100", # Disable missing docstring in public module
+    "D104", # Disable missing docstring in public package
+    "D101", # Disable undocumented public class definitions.
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+### pytest ###
+
+[tool.pytest]
+pythonpath = ["src"]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+]
+filterwarnings = [
+    "ignore:builtin type SwigPyPacked:DeprecationWarning",
+    "ignore:builtin type SwigPyObject:DeprecationWarning",
+    "ignore:builtin type swigvarlink:DeprecationWarning",
+]
+
+### coverage ###
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "*/site-packages/*",
+    "*/dependency_injector/*",
+    "**/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.coverage.html]
+directory = "var/coverage"

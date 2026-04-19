@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  check-diff:
+    runs-on: ubuntu-latest
+    outputs:
+      run-tests: ${{ steps.filter.outputs.run-tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in src/ or tests/
+        id: filter
+        run: |
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+
+          CHANGED_FILES=$(git diff --name-only "$BASE"...HEAD)
+          MATCHING_FILES=$(echo "$CHANGED_FILES" | grep -E '^src/|^tests/' || true)
+
+          if [ -n "$MATCHING_FILES" ]; then
+            echo "Relevant changes detected"
+            echo "run-tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "No relevant changes"
+            echo "run-tests=false" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    needs: check-diff
+    if: needs.check-diff.outputs.run-tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv sync --dev
+
+      - name: Copy example config files if missing
+        run: |
+          cp -n .env.example .env || true
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest --cov=src/rebelist/hack --no-cov-on-fail --cov-report xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          report_type: coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
