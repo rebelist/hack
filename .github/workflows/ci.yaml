@@ -26,6 +26,7 @@ jobs:
             code:
               - 'src/**'
               - 'tests/**'
+              - 'uv.lock'
 
   test:
     needs: check-diff

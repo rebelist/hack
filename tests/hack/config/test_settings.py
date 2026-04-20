@@ -17,7 +17,7 @@ class TestSettings:
         config_file = config_dir / 'config.yaml'
 
         config_data: dict[str, Any] = {
-            'agent': {'model': 'openai:gpt-4', 'api_key_name': 'OPENAI_API_KEY', 'api_key': 'sk-123'},
+            'agent': {'model': 'openai:gpt-4', 'api_key_name': 'OPENAI_API_KEY', 'api_key': 'sk-1234'},
             'jira': {
                 'host': 'https://jira.example.com',
                 'token': 'secret_token',
@@ -49,7 +49,7 @@ class TestSettings:
 
             assert settings.general.version == '1.2.3'
             assert settings.agent.model == 'openai:gpt-4'
-            assert os.environ['OPENAI_API_KEY'] == 'sk-123'
+            assert os.environ['OPENAI_API_KEY'] == 'sk-1234'
 
     def test_settings_build_missing_file_copy_template(self, tmp_path: Path) -> None:
         """Verify that Settings builds by copying template if config doesn't exist."""

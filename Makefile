@@ -1,12 +1,12 @@
-.PHONY: init start dev shutdown validate tests coverage
+.PHONY: check tests coverage
 
-validate:
+check:
 	@echo "\nRunning pre-commit validations on all files..."
 	@pre-commit run --all-files
 
 tests:
 	@echo "\nRunning tests..."
-	@uv run pytest -vv --cache-clear --color=yes --no-header --maxfail=1 --failed-first
+	@uv run pytest -v --cache-clear --failed-first --maxfail=1
 
 coverage:
 	@echo "\nGenerating test coverage..."
