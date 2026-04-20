@@ -69,6 +69,8 @@ hack jira ticket "Users can't reset their password on mobile"
 The agent interprets the input, picks the right issue type, writes a structured description, and creates the ticket in
 Jira using your configured templates.
 
+![demo_ticket_create.gif](docs/images/demo_ticket_create.gif)
+
 ## License
 
 [MIT](https://mit-license.org/)
