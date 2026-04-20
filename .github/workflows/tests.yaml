@@ -8,38 +8,24 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   check-diff:
     runs-on: ubuntu-latest
     outputs:
-      run-tests: ${{ steps.filter.outputs.run-tests }}
+      run-tests: ${{ steps.filter.outputs.code }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v6
 
-      - name: Check for changes in src/ or tests/
+      - name: Check for changes
+        uses: dorny/paths-filter@v4
         id: filter
-        run: |
-
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE="${{ github.event.before }}"
-          fi
-
-          CHANGED_FILES=$(git diff --name-only "$BASE"...HEAD)
-          MATCHING_FILES=$(echo "$CHANGED_FILES" | grep -E '^src/|^tests/' || true)
-
-          if [ -n "$MATCHING_FILES" ]; then
-            echo "Relevant changes detected"
-            echo "run-tests=true" >> $GITHUB_OUTPUT
-          else
-            echo "No relevant changes"
-            echo "run-tests=false" >> $GITHUB_OUTPUT
-          fi
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'tests/**'
 
   test:
     needs: check-diff
@@ -48,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.14'
 
