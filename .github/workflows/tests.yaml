@@ -49,10 +49,6 @@ jobs:
           uv venv
           uv sync --dev
 
-      - name: Copy example config files if missing
-        run: |
-          cp -n .env.example .env || true
-
       - name: Run tests with coverage
         run: |
           uv run pytest --cov=src/rebelist/hack --no-cov-on-fail --cov-report xml

@@ -13,7 +13,7 @@ class JiraTicketAgent:
         self.__agent.system_prompt(self.__build_system_prompt)
 
     def run(self, prompt: str) -> DraftTicket:
-        """Runs the agent on the given query."""
+        """Run the agent on the given query."""
         result = self.__agent.run_sync(prompt)
         return result.output
 
