@@ -8,6 +8,8 @@ from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
 from rebelist.hack.console import app
 
+# Shared fixtures (`runner`, `mock_settings`) are defined in `tests/conftest.py`.
+
 
 class TestConsole:
     def test_bootstrap_version(self, runner: CliRunner, mock_settings: Settings) -> None:
@@ -34,6 +36,8 @@ class TestConsole:
         """Verify that the jira ticket command calls the container's create_ticket_command."""
         mock_container = create_autospec(Container)
         mock_container.settings = mock_settings
+        # `create_ticket_command` is a cached_property that resolves to a callable command;
+        # autospec can't infer that, so we stub it with an explicit callable mock.
         mock_command = MagicMock(return_value='HACK-123')
         mock_container.create_ticket_command = mock_command
 

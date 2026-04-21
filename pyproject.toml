@@ -1,6 +1,6 @@
 [project]
 name = "rebelist-hack"
-version = "0.1.0"
+version = "0.1.1"
 description = "An internal CLI tool that automates boring tasks to optimise team productivity and standardise development workflows."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
@@ -110,7 +110,6 @@ branch = true
 source = ["src"]
 omit = [
     "*/site-packages/*",
-    "*/dependency_injector/*",
     "**/__init__.py",
 ]
 

@@ -110,15 +110,14 @@ class Settings(BaseSettings):
     @classmethod
     def instance(cls) -> Settings:
         """Return the lazily-initialized singleton `Settings` instance."""
-        cached = cls.__instance
-        if cached is None:
-            cached = cls.__build()
-            os.environ[cached.agent.api_key_name] = cached.agent.api_key
-            cls.__instance = cached
+        if cls.__instance is None:
+            settings = cls.__build()
+            os.environ[settings.agent.api_key_name] = settings.agent.api_key
+            cls.__instance = settings
 
-        return cached
+        return cls.__instance
 
     @classmethod
-    def reset(cls) -> None:
+    def _reset(cls) -> None:
         """Clear the cached singleton. Intended for tests only."""
         cls.__instance = None

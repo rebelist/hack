@@ -8,6 +8,7 @@ from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
 
 console = Console()
+
 app = Typer()
 jira = Typer()
 

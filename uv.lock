@@ -4,14 +4,14 @@ requires-python = "==3.14.*"
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.16"
+version = "0.1.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0f/8f/d209eca4cc6e2123542b0a8eeda62732a6ec8862fe78435178eaac13480d/ag_ui_protocol-0.1.16.tar.gz", hash = "sha256:b5f45c98ed52291c7a07d01eb91f44d5e73a2fae8c31e8fc2a48d749a4dec5b7", size = 6273, upload-time = "2026-04-17T17:56:14.641Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/0f/5a8ce5eb5cd7adf3f733da87d7a5a8a38f24ec9e029c1300f9495ae9c7fa/ag_ui_protocol-0.1.17.tar.gz", hash = "sha256:5fae4cfced8245c8ac329b85702fd166ff226d99dc1ea8a1ae95890826aa69e5", size = 6273, upload-time = "2026-04-20T21:09:19.436Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/fb/de67f470f5cd60581faae4653ee588646cf8a2ff34bfb8f2e6f406fb29da/ag_ui_protocol-0.1.16-py3-none-any.whl", hash = "sha256:3ed7787aa6a89233c398b85dce4ffed625f83f774ea9b3a7fa6133dc24599c88", size = 8648, upload-time = "2026-04-17T17:56:15.443Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/82/e5f1686b4c4e232818c75598d651b82088f584e59adef71802920d74f82f/ag_ui_protocol-0.1.17-py3-none-any.whl", hash = "sha256:6a9065590d21c7b9b8ae9bb1a3410ecf4d18cb8041a077d25574f792dfa504fe", size = 8648, upload-time = "2026-04-20T21:09:20.488Z" },
 ]
 
 [[package]]
@@ -2027,7 +2027,7 @@ wheels = [
 
 [[package]]
 name = "rebelist-hack"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "jira" },

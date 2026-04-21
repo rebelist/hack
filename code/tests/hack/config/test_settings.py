@@ -42,7 +42,8 @@ class TestSettings:
 
             mp.setattr('rebelist.hack.config.settings.metadata.version', mock_version)
 
-            Settings.reset()
+            Settings.reset()  # pyright: ignore[reportPrivateUsage]
+
             settings = Settings.instance()
 
             assert settings.general.version == '1.2.3'
@@ -94,7 +95,7 @@ class TestSettings:
 
             mp.setattr('rebelist.hack.config.settings.metadata.version', mock_version)
 
-            Settings.reset()
+            Settings.reset()  # pyright: ignore[reportPrivateUsage]
             settings = Settings.instance()
 
             assert settings.agent.model == 'm'
