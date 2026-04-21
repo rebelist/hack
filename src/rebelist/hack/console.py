@@ -33,7 +33,10 @@ def ticket(
 ) -> None:
     """Create a Jira ticket from a natural language description. The type is inferred from a predefined set."""
     container: Container = context.obj
-    key = container.create_ticket_command(description)
+
+    with console.status('[bold yellow]Outsourcing clarity to a neural network...', spinner='dots'):
+        key = container.create_ticket_command(description)
+
     console.print(f'[green]Ticket created! [/green] {container.settings.jira.host}/browse/{key}')
 
 
