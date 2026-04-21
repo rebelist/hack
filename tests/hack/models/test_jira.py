@@ -23,7 +23,7 @@ class TestJiraModels:
         assert draft.description == 'Description'
 
     def test_ticket_issue_type_title_validation(self) -> None:
-        """Verify that issue_type in Ticket is automatically title-cased."""
+        """Verify that issue_type in Ticket is automatically title cased."""
         ticket = Ticket(
             project='HACK',
             summary='S',
