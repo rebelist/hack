@@ -1,8 +1,8 @@
 from typing import Any
 from unittest.mock import create_autospec
 
-import pytest
 from pydantic_ai import Agent, RunContext
+from pytest import MonkeyPatch
 
 from rebelist.hack.config.settings import JiraSettings
 from rebelist.hack.connectors.agents import JiraTicketAgent
@@ -12,7 +12,7 @@ from rebelist.hack.models.jira import DraftTicket
 class TestJiraTicketAgent:
     def test_agent_initialization(self, mock_jira_settings: JiraSettings) -> None:
         """Verify that JiraTicketAgent initializes the underlying Agent correctly."""
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             mock_agent_class = create_autospec(Agent)
             mp.setattr('rebelist.hack.connectors.agents.Agent', mock_agent_class)
 
@@ -22,7 +22,7 @@ class TestJiraTicketAgent:
 
     def test_run_calls_agent_run_sync(self, mock_jira_settings: JiraSettings) -> None:
         """Verify that run method delegates to the underlying Agent's run_sync."""
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             mock_agent_instance = create_autospec(Agent)
 
             def mock_agent_factory(*_args: Any, **_kwargs: Any) -> Agent:

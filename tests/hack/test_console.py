@@ -1,7 +1,7 @@
 from typing import Any
 from unittest.mock import MagicMock, create_autospec
 
-import pytest
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from rebelist.hack.config.container import Container
@@ -16,7 +16,7 @@ class TestConsole:
         mock_container.settings = mock_settings
 
         # We need to mock Settings.instance() because bootstrap calls it
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             mp.setattr('rebelist.hack.console.Settings.instance', lambda: mock_settings)
 
             def mock_container_factory(_settings: Any) -> Container:
@@ -37,7 +37,7 @@ class TestConsole:
         mock_command = MagicMock(return_value='HACK-123')
         mock_container.create_ticket_command = mock_command
 
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             mp.setattr('rebelist.hack.console.Settings.instance', lambda: mock_settings)
 
             def mock_container_factory(_settings: Any) -> Container:
@@ -52,7 +52,7 @@ class TestConsole:
 
     def test_main(self) -> None:
         """Verify that main calls the app."""
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             from rebelist.hack import console
 
             mock_app = create_autospec(console.app)

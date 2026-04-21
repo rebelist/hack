@@ -2,6 +2,7 @@ from typing import Any
 from unittest.mock import create_autospec
 
 import pytest
+from pytest import MonkeyPatch
 
 from rebelist.hack.commands.jira.services import TicketFactory
 from rebelist.hack.config.container import Container
@@ -16,7 +17,7 @@ class TestContainer:
         container = Container(mock_settings)
 
         # We need to mock JIRA and JiraGateway to avoid real connections
-        with pytest.MonkeyPatch.context() as mp:
+        with MonkeyPatch.context() as mp:
             mock_jira_client = create_autospec(lambda *args, **kwargs: None)
             mock_gateway_class = create_autospec(JiraGateway)
 
@@ -68,8 +69,7 @@ class TestContainer:
         """Verify that CreateJiraTicketCommand is initialized lazily and cached."""
         container = Container(mock_settings)
 
-        with pytest.MonkeyPatch.context() as mp:
-            # Mock dependencies of CreateJiraTicketCommand
+        with MonkeyPatch.context() as mp:
             mp.setattr('rebelist.hack.config.container.JIRA', create_autospec(lambda *args, **kwargs: None))
 
             def mock_gateway_factory(_: Any) -> JiraGateway:

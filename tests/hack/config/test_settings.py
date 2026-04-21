@@ -1,17 +1,18 @@
 import os
+import shutil
+from importlib import metadata
 from pathlib import Path
 from typing import Any
-from unittest.mock import create_autospec
 
-import pytest
-from yaml import dump
+from pytest_mock import MockerFixture
+from yaml import dump, safe_load
 
-from rebelist.hack.config.settings import Settings
+from rebelist.hack.config.settings import Settings, YamlSettingsSource
 
 
 class TestSettings:
-    def test_settings_instance_creation(self, tmp_path: Path) -> None:
-        """Verify that Settings.instance() loads configuration correctly (using mock file)."""
+    def test_settings_instance_creation(self, tmp_path: Path, mocker: MockerFixture) -> None:
+        """Verify that Settings.instance() loads configuration correctly."""
         config_dir = tmp_path / '.config/hack'
         config_dir.mkdir(parents=True)
         config_file = config_dir / 'config.yaml'
@@ -30,72 +31,107 @@ class TestSettings:
                 'templates': [],
             },
         }
-
         config_file.write_text(dump(config_data))
 
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(Path, 'home', lambda: tmp_path)
+        template_file = tmp_path / 'template.config.yaml'
+        template_file.write_text(dump(config_data))
 
-            # metadata.version needs to be mocked too
-            def mock_version(_path: Any) -> str:
-                return '1.2.3'
+        mocker.patch.object(Path, 'home', return_value=tmp_path, autospec=True)
+        mocker.patch.object(YamlSettingsSource, 'get_template_config_path', return_value=template_file, autospec=True)
+        mocker.patch.object(metadata, 'version', return_value='1.2.3', autospec=True)
 
-            mp.setattr('rebelist.hack.config.settings.metadata.version', mock_version)
+        Settings.reset()
+        settings = Settings.instance()
 
-            Settings.reset()
-            settings = Settings.instance()
+        assert settings.general.version == '1.2.3'
+        assert settings.agent.model == 'openai:gpt-4'
+        assert os.environ['OPENAI_API_KEY'] == 'sk-1234'
 
-            assert settings.general.version == '1.2.3'
-            assert settings.agent.model == 'openai:gpt-4'
-            assert os.environ['OPENAI_API_KEY'] == 'sk-1234'
+    def test_settings_build_missing_file_copies_template(self, tmp_path: Path, mocker: MockerFixture) -> None:
+        """Verify that Settings builds by copying the template when no user config exists."""
+        template_file = tmp_path / 'template.config.yaml'
+        template_file.write_text(
+            dump(
+                {
+                    'agent': {'model': 'm', 'api_key_name': 'K', 'api_key': 'V'},
+                    'jira': {
+                        'host': 'h',
+                        'token': 't',
+                        'fields': {'project': 'P', 'reporter': {'default': 'r'}, 'issue_type': {'options': []}},
+                        'custom_fields': {},
+                        'templates': [],
+                    },
+                }
+            )
+        )
 
-    def test_settings_build_missing_file_copy_template(self, tmp_path: Path) -> None:
-        """Verify that Settings builds by copying template if config doesn't exist."""
-        # This test checks the logic where it copies template.config.yaml
-        _ = tmp_path / '.config/hack'
-        # Not creating the file here
+        mocker.patch.object(Path, 'home', return_value=tmp_path, autospec=True)
+        mocker.patch.object(YamlSettingsSource, 'get_template_config_path', return_value=template_file, autospec=True)
+        mocker.patch.object(metadata, 'version', return_value='0.0.1', autospec=True)
 
-        # We need a dummy template file in the right place relative to settings.py
-        # But we can't easily place it there in the real src.
-        # So we mock the copy operation or the template path.
+        # Use side_effect instead of wraps for a cleaner MagicMock behavior
+        mock_copy = mocker.patch.object(shutil, 'copy', side_effect=_copy_file, autospec=True)
 
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(Path, 'home', lambda: tmp_path)
+        Settings.reset()
+        settings = Settings.instance()
 
-            # Mock shutil.copy to avoid needing the real template file
-            mock_copy = create_autospec(lambda src, dst: None)
-            mp.setattr('rebelist.hack.config.settings.shutil.copy', mock_copy)
+        assert settings.agent.model == 'm'
+        mock_copy.assert_called_once()
+        assert (tmp_path / '.config/hack/config.yaml').exists()
 
-            # Mock safe_load to return something valid after "copy"
-            # Since copy was mocked, the file won't actually exist unless we create it
-            # but __build will fail at config_file.read_text()
+    def test_settings_backfills_missing_keys_from_template(self, tmp_path: Path, mocker: MockerFixture) -> None:
+        """Missing keys from template should be merged into user config."""
+        config_dir = tmp_path / '.config/hack'
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / 'config.yaml'
 
-            # Let's create the file after the "copy" would have happened
-            def side_effect(src: str | Path, dst: str | Path) -> None:
-                Path(dst).write_text(
-                    dump(
-                        {
-                            'agent': {'model': 'm', 'api_key_name': 'K', 'api_key': 'V'},
-                            'jira': {
-                                'host': 'h',
-                                'token': 't',
-                                'fields': {'project': 'P', 'reporter': {'default': 'r'}, 'issue_type': {'options': []}},
-                                'custom_fields': {},
-                                'templates': [],
-                            },
-                        }
-                    )
-                )
+        user_config: dict[str, Any] = {
+            'agent': {'model': 'user-m', 'api_key_name': 'K', 'api_key': 'V'},
+            'jira': {
+                'host': 'h',
+                'token': 't',
+                'fields': {'project': 'P', 'reporter': {'default': 'user1'}, 'issue_type': {'options': []}},
+                'custom_fields': {},
+                'templates': [],
+            },
+        }
+        config_file.write_text(dump(user_config))
 
-            mock_copy.side_effect = side_effect
+        template_file = tmp_path / 'template.config.yaml'
+        template_data: dict[str, Any] = {
+            'agent': {'model': 'tmpl', 'api_key_name': 'K', 'api_key': 'V', 'new_key': 'val'},
+            'jira': {
+                'host': 'h',
+                'token': 't',
+                'fields': {
+                    'project': 'P',
+                    'reporter': {'default': 'tmpl', 'new_sub': 'val'},
+                    'issue_type': {'options': []},
+                },
+                'custom_fields': {},
+                'templates': [],
+            },
+        }
+        template_file.write_text(dump(template_data))
 
-            def mock_version(_path: Any) -> str:
-                return '0.0.1'
+        mocker.patch.object(Path, 'home', return_value=tmp_path, autospec=True)
+        mocker.patch.object(YamlSettingsSource, 'get_template_config_path', return_value=template_file, autospec=True)
+        mocker.patch.object(metadata, 'version', return_value='1.0.0', autospec=True)
 
-            mp.setattr('rebelist.hack.config.settings.metadata.version', mock_version)
+        Settings.reset()
+        settings = Settings.instance()
 
-            Settings.reset()
-            settings = Settings.instance()
+        # Check in-memory object
+        assert settings.agent.model == 'user-m'
 
-            assert settings.agent.model == 'm'
-            mock_copy.assert_called_once()
+        # Check disk persistence
+        persisted = safe_load(config_file.read_text())
+        assert persisted['agent']['new_key'] == 'val'
+        assert persisted['jira']['fields']['reporter']['default'] == 'user1'
+        assert persisted['jira']['fields']['reporter']['new_sub'] == 'val'
+
+
+def _copy_file(src: Any, dst: Any) -> Any:
+    """Help to simulate shutil.copy for tests."""
+    Path(dst).write_bytes(Path(src).read_bytes())
+    return dst

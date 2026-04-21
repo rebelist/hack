@@ -1,16 +1,16 @@
 agent:
   model: "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
   api_key_name: "OPENROUTER_API_KEY" # For ollama use a dummy value, for other providers see the README.md
-  api_key: "" # For ollama use a dummy value.
+  api_key: "None" # For ollama use a dummy value.
 
 jira:
   host: "https://jira.example.com" # Jira API host.
-  token: "" # Jira API token.
+  token: "None" # Jira API token.
 
   fields:
     project: "XX" # Jira project key.
     reporter:
-      default: "doejohn" # A Jira username.
+      default: "bob" # A Jira username.
     issue_type:
       options: # List of the available issue types.
         - "Bug"
@@ -28,7 +28,7 @@ jira:
     stakeholder:
       name: "customfield_3"
       field_type: "user" # This field type expect a username as value.
-      default: "doejohn"
+      default: "bob"
     story_points:
       name: "customfield_4"
       field_type: "text"  # This field type expect a text value.
