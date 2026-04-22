@@ -17,22 +17,22 @@ jira:
         - "User Story"
 
   custom_fields:
-    teams:
-      name: "customfield_1"
-      field_type: "multi_select" # This field type expect multiple options from a multi select/drop down.
-      default: [ "Team A" ]
-    work_category:
-      name: "customfield_2"
-      field_type: "select"  # This field type expect an option from a select/drop down.
-      default: "Operational Tasks"
-    stakeholder:
-      name: "customfield_3"
-      field_type: "user" # This field type expect a username as value.
-      default: "bob"
-    story_points:
-      name: "customfield_4"
-      field_type: "text"  # This field type expect a text value.
-      default: "1"
+  #    teams:
+  #      name: "customfield_1"
+  #      field_type: "multi_select" # This field type expect multiple options from a multi select/drop down.
+  #      default: [ "Team A" ]
+  #    work_category:
+  #      name: "customfield_2"
+  #      field_type: "select"  # This field type expect an option from a select/drop down.
+  #      default: "Operational Tasks"
+  #    stakeholder:
+  #      name: "customfield_3"
+  #      field_type: "user" # This field type expect a username as value.
+  #      default: "bob"
+  #    story_points:
+  #      name: "customfield_4"
+  #      field_type: "text"  # This field type expect a text value.
+  #      default: "1"
 
   templates: # Templates used for jira issue descriptions. In Wiki Markup style.
     - issue_type: "User Story"
