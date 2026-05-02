@@ -1,21 +1,30 @@
 import os
 import shutil
+from enum import StrEnum, auto
 from importlib import metadata
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Final, TypeGuard
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from yaml import safe_dump, safe_load
-
-from rebelist.hack.models.jira import CustomFieldType
 
 ############################################
 #              Models
 ############################################
 
 NonEmptyString = Annotated[str, Field(min_length=1)]
+TitleString = Annotated[str, BeforeValidator(lambda v: v.title() if isinstance(v, str) else v)]
+
+
+class JiraIssueCustomFieldType(StrEnum):
+    """Custom Jira custom field type."""
+
+    SELECT = auto()
+    MULTI_SELECT = auto()
+    USER = auto()
+    TEXT = auto()
 
 
 class GeneralSettings(BaseModel):
@@ -31,31 +40,25 @@ class AgentSettings(BaseModel):
     api_key: NonEmptyString
 
 
-class JiraTicketReporterSettings(BaseModel):
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-    default: NonEmptyString
-
-
-class JiraIssueTypeSettings(BaseModel):
-    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-    options: list[str]
-
-
-class JiraTicketFieldsSettings(BaseModel):
+class JiraIssueFieldsSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     project: NonEmptyString
-    reporter: JiraTicketReporterSettings
-    issue_type: JiraIssueTypeSettings
+    reporter: NonEmptyString
+    issue_types: list[TitleString]
 
 
-class JiraTicketCustomFieldSettings(BaseModel):
+class JiraIssueCustomFieldSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-    name: NonEmptyString
-    field_type: CustomFieldType
-    default: str | list[str] | None = None
+    name: Annotated[
+        str,
+        Field(pattern=r'^customfield_\d+$', description="Internal Jira custom field ID (e.g., 'customfield_13207')."),
+    ]
+    alias: Annotated[NonEmptyString, Field(description='Human readable name for the custom field.')]
+    field_type: JiraIssueCustomFieldType
+    value: str | list[str] | None = None
 
 
-class JiraTicketTemplateSettings(BaseModel):
+class JiraIssueDescriptionTemplateSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     issue_type: str
     template: str
@@ -65,9 +68,20 @@ class JiraSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     host: NonEmptyString
     token: NonEmptyString
-    fields: JiraTicketFieldsSettings
-    custom_fields: dict[str, JiraTicketCustomFieldSettings]
-    templates: list[JiraTicketTemplateSettings]
+    fields: JiraIssueFieldsSettings
+    custom_fields: list[JiraIssueCustomFieldSettings] = []
+    templates: list[JiraIssueDescriptionTemplateSettings] = []
+
+    @field_validator('custom_fields', 'templates', mode='before')
+    @classmethod
+    def _replace_none_with_empty_list(cls, v: Any) -> Any:
+        """Convert explicit None values to an empty list to satisfy downstream type constraints."""
+        return v if v is not None else []
+
+
+class GitSettings(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    branch_categories: list[NonEmptyString]
 
 
 ############################################
@@ -80,7 +94,7 @@ class YamlSettingsSource(PydanticBaseSettingsSource):
 
     PACKAGE_NAME: Final[str] = 'rebelist-hack'
     CONFIG_RELATIVE_PATH: Final[str] = '.config/hack/config.yaml'
-    TEMPLATE_FILE_NAME: Final[str] = 'template.config.yaml'
+    TEMPLATE_FILE_NAME: Final[str] = 'config.template.yaml'
 
     @staticmethod
     def get_user_config_path() -> Path:
@@ -168,11 +182,12 @@ class Settings(BaseSettings):
     general: GeneralSettings
     agent: AgentSettings
     jira: JiraSettings
+    git: GitSettings
 
     __instance: ClassVar[Settings | None] = None
 
     def __init__(self, **values: Any) -> None:
-        """Initialize settings, allowing BaseSettings sources to provide values."""
+        """Construct via Pydantic settings sources (YAML, env). All fields are populated by sources."""
         super().__init__(**values)
 
     @classmethod

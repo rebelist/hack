@@ -1,84 +1,91 @@
-from typing import Any
+"""Tests for the lazy DI Container.
+
+External constructors that the Container reaches for (`JIRA`, `Agent`) are
+substituted at the module level with `create_autospec`-backed replacements so
+no network or LLM call is made and so every mock validates the production
+class signature.
+"""
+
 from unittest.mock import create_autospec
 
 import pytest
-from pytest import MonkeyPatch
+from jira import JIRA
+from pydantic_ai import Agent
+from pytest_mock import MockerFixture
 
-from rebelist.hack.commands.jira.services import TicketFactory
+from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
+from rebelist.hack.commands.jira import CreateJiraTicketCommand
+from rebelist.hack.config import container as container_module
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
-from rebelist.hack.connectors import JiraGateway
-from rebelist.hack.connectors.agents import JiraTicketAgent
+from rebelist.hack.infrastructure.git import GitManager
+from rebelist.hack.infrastructure.git import agents as git_agents_module
+from rebelist.hack.infrastructure.jira import JiraGateway
+from rebelist.hack.infrastructure.jira import agents as jira_agents_module
 
 
+@pytest.fixture(autouse=True)
+def stub_external_constructors(mocker: MockerFixture) -> None:
+    """Replace heavy / network-touching constructors with autospec'd stand-ins."""
+    mocker.patch.object(container_module, 'JIRA', new=create_autospec(JIRA))
+    mocker.patch.object(jira_agents_module, 'Agent', new=create_autospec(Agent))
+    mocker.patch.object(git_agents_module, 'Agent', new=create_autospec(Agent))
+
+
+@pytest.mark.unit
 class TestContainer:
-    def test_jira_gateway_lazy_initialization(self, mock_settings: Settings) -> None:
-        """Verify that JiraGateway is initialized lazily and cached."""
-        container = Container(mock_settings)
+    """Verify the lazy DI graph wires the right concrete classes and caches them."""
 
-        # We need to mock JIRA and JiraGateway to avoid real connections
-        with MonkeyPatch.context() as mp:
-            mock_jira_client = create_autospec(lambda *args, **kwargs: None)
-            mock_gateway_class = create_autospec(JiraGateway)
+    def test_resolves_jira_gateway_with_mapped_settings(self, settings: Settings) -> None:
+        """jira_gateway is built lazily and exposes a JiraGateway instance."""
+        container = Container(settings)
 
-            mp.setattr('rebelist.hack.config.container.JIRA', mock_jira_client)
+        gateway = container.jira_gateway
 
-            def mock_gateway_factory(_: Any) -> JiraGateway:
-                return mock_gateway_class
+        assert isinstance(gateway, JiraGateway)
 
-            mp.setattr('rebelist.hack.config.container.JiraGateway', mock_gateway_factory)
+    def test_resolves_create_ticket_command(self, settings: Settings) -> None:
+        """create_ticket_command resolves to a CreateJiraTicketCommand."""
+        container = Container(settings)
 
-            gateway1 = container.jira_gateway
-            gateway2 = container.jira_gateway
+        command = container.create_ticket_command
 
-            assert gateway1 is gateway2
-            assert gateway1 is mock_gateway_class
+        assert isinstance(command, CreateJiraTicketCommand)
 
-    def test_jira_gateway_missing_config(self, mock_settings: Settings) -> None:
-        """Verify that ValueError is raised if Jira host or token is missing."""
-        # Using a fresh Settings object to modify it
-        from rebelist.hack.config.settings import JiraSettings
+    def test_resolves_git_checkout_branch_command(self, settings: Settings) -> None:
+        """git_checkout_branch_command resolves to a CheckoutBranchCommand."""
+        container = Container(settings)
 
-        # Test missing host
-        bad_settings = create_autospec(Settings)
-        bad_settings.jira = create_autospec(JiraSettings)
-        bad_settings.jira.host = ''
-        bad_settings.jira.token = 'token'
+        command = container.git_checkout_branch_command
 
-        container = Container(bad_settings)
-        with pytest.raises(ValueError, match='Jira host is not configured.'):
-            _ = container.jira_gateway
+        assert isinstance(command, CheckoutBranchCommand)
 
-        # Test missing token
-        bad_settings.jira.host = 'host'
-        bad_settings.jira.token = ' '
-        with pytest.raises(ValueError, match='Jira token is not configured.'):
-            _ = container.jira_gateway
+    def test_resolves_git_commit_command(self, settings: Settings) -> None:
+        """git_commit_command resolves to a CommitCommand."""
+        container = Container(settings)
 
-    def test_ticket_factory_lazy_initialization(self, mock_settings: Settings) -> None:
-        """Verify that TicketFactory is initialized lazily and cached."""
-        container = Container(mock_settings)
+        command = container.git_commit_command
 
-        factory1 = container.ticket_factory
-        factory2 = container.ticket_factory
+        assert isinstance(command, CommitCommand)
 
-        assert factory1 is factory2
-        assert isinstance(factory1, TicketFactory)
+    def test_resolves_git_manager(self, settings: Settings) -> None:
+        """git_manager resolves to a GitManager."""
+        container = Container(settings)
 
-    def test_create_ticket_command_lazy_initialization(self, mock_settings: Settings) -> None:
-        """Verify that CreateJiraTicketCommand is initialized lazily and cached."""
-        container = Container(mock_settings)
+        manager = container.git_manager
 
-        with MonkeyPatch.context() as mp:
-            mp.setattr('rebelist.hack.config.container.JIRA', create_autospec(lambda *args, **kwargs: None))
+        assert isinstance(manager, GitManager)
 
-            def mock_gateway_factory(_: Any) -> JiraGateway:
-                return create_autospec(JiraGateway)
+    def test_each_resolution_is_singleton_per_container(self, settings: Settings) -> None:
+        """cached_property guarantees a single instance per Container per key."""
+        container = Container(settings)
 
-            mp.setattr('rebelist.hack.config.container.JiraGateway', mock_gateway_factory)
-            mp.setattr('rebelist.hack.config.container.JiraTicketAgent', create_autospec(JiraTicketAgent))
+        assert container.jira_gateway is container.jira_gateway
+        assert container.git_manager is container.git_manager
+        assert container.create_ticket_command is container.create_ticket_command
 
-            cmd1 = container.create_ticket_command
-            cmd2 = container.create_ticket_command
+    def test_settings_is_exposed_as_attribute(self, settings: Settings) -> None:
+        """Commands read configuration values off container.settings, so it must be reachable."""
+        container = Container(settings)
 
-            assert cmd1 is cmd2
+        assert container.settings is settings

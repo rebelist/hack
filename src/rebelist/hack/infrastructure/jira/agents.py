@@ -3,45 +3,43 @@ from textwrap import dedent
 from pydantic_ai import Agent, RunContext
 
 from rebelist.hack.config.settings import JiraSettings
-from rebelist.hack.models.jira import DraftTicket
+from rebelist.hack.domain.models import Ticket
 
 
-class JiraTicketAgent:
+class JiraTicketComposer:
     def __init__(self, model: str, jira_ticket_settings: JiraSettings) -> None:
         self.__jira_ticket_settings = jira_ticket_settings
-        self.__agent = Agent(model, output_type=DraftTicket)
+        self.__agent = Agent(model, output_type=Ticket)
         self.__agent.system_prompt(self.__build_system_prompt)
 
-    def run(self, prompt: str) -> DraftTicket:
+    def compose(self, description: str) -> Ticket:
         """Run the agent on the given query."""
-        result = self.__agent.run_sync(prompt)
+        result = self.__agent.run_sync(description)
         return result.output
 
     def __build_system_prompt(self, _: RunContext) -> str:
-
-        issue_types = ', '.join(self.__jira_ticket_settings.fields.issue_type.options)
+        issue_types = ', '.join(self.__jira_ticket_settings.fields.issue_types)
         descriptions = '\n'.join(
             f'*{item.issue_type}*:\n```\n{item.template.strip()}\n```' for item in self.__jira_ticket_settings.templates
         )
 
-        system_prompt = (
-            dedent(f"""
-        You are an assistant that transforms a raw Jira ticket request into a structured `DraftTicket` object.
+        return dedent(f"""
+        You are an assistant that transforms a raw Jira ticket request into a structured `Ticket` object.
 
         Your task is to:
         - Read the user’s input (a rough Jira ticket description).
         - Infer intent and context.
-        - Produce a clean, structured `DraftTicket` with a clear summary, valid `issue_type`, and a well-formatted
+        - Produce a clean, structured `Ticket` with a clear summary, valid `kind`, and a well-formatted
           description.
 
         ---
 
         ## Output Requirements
 
-        You MUST return a valid `DraftTicket` object with the following fields:
+        You MUST return a valid `Ticket` object with the following fields:
 
         - `summary`: A concise, clear title (max ~10–12 words).
-        - `issue_type`: Must be EXACTLY one of the following values: `{issue_types}`
+        - `kind`: Must be EXACTLY one of the following values: `{issue_types}`
         - `description`: A detailed Jira description written in Wiki Markup style.
 
         ### Constraints
@@ -50,10 +48,10 @@ class JiraTicketAgent:
 
         ---
 
-        ## Issue Type Rules
+        ## Ticket Kind Rules
 
-        - Select the most appropriate `issue_type` based on the user’s intent.
-        - Do NOT invent new issue types.
+        - Select the most appropriate `kind` based on the user’s intent.
+        - Do NOT invent new ticket kinds.
         - Use ONLY one of: {issue_types}
 
         ---
@@ -77,13 +75,13 @@ class JiraTicketAgent:
 
         ## Description Templates
 
-        You MUST use the correct template based on `issue_type`.
+        You MUST use the correct template based on `kind`.
 
-        {{}}
+        {descriptions}
 
         ### Template Instructions
 
-        - Select the template that matches the chosen `issue_type`.
+        - Select the template that matches the chosen `kind`.
         - Replace placeholders with relevant content derived from the user input.
         - If some sections are missing information:
           - Keep the section
@@ -111,12 +109,7 @@ class JiraTicketAgent:
         ```
 
         **Expected behavior:**
-        - Identify the appropriate `issue_type`
+        - Identify the appropriate `kind`
         - Create a short, clear summary like a title
         - Expand into a structured description using the correct template
-        """)
-            .strip()
-            .format(descriptions)
-        )
-
-        return system_prompt
+        """).strip()

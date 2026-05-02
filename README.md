@@ -4,7 +4,7 @@
 </p>
 
 <p align="center">
-   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.2.2-e63946?logo=github&logoColor=white" alt="Release" /></a>
+   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.3.0-e63946?logo=github&logoColor=white" alt="Release" /></a>
    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white" alt="Python" /></a>
    <a href="https://github.com/rebelist/hack/actions/workflows/ci.yaml"><img src="https://github.com/rebelist/hack/actions/workflows/ci.yaml/badge.svg" alt="CI" /></a>
    <a href="https://codecov.io/gh/rebelist/hack" ><img src="https://codecov.io/gh/rebelist/hack/graph/badge.svg?token=lqdBu0NiZO" alt="Codecov"/></a>
@@ -66,10 +66,29 @@ Then configure your Jira templates and field values to match your project's conv
 hack jira ticket "Users can't reset their password on mobile"
 ```
 
-The agent interprets the input, picks the right issue type, writes a structured description, and creates the ticket in
+The command interprets the input, picks the right issue type, writes a structured description, and creates the ticket in
 Jira using your configured templates.
 
 ![demo_ticket_create.gif](docs/images/demo_ticket_create.gif)
+
+```bash
+hack git branch "WS-1238"
+```
+
+Fetches the Jira ticket, passes its details to an LLM to pick a branch category and a kebab-case name, then checks out
+a new branch named `{category}/{TICKET-KEY}-{kebab-name}` (e.g. `feature/WS-1238-reset-password-on-mobile`).
+
+![demo_git_branch.gif](docs/images/demo_git_branch.gif)
+
+```bash
+hack git commit "Some description of the commit"
+```
+
+Reads the current branch to extract the ticket key, passes your description to an LLM to produce a concise commit
+subject and optional body, then commits with the ticket key auto-prepended to the subject (e.g.
+`WS-1238 Fix reset password on mobile`).
+
+![demo_git_commit.gif](docs/images/demo_git_commit.gif)
 
 ## License
 

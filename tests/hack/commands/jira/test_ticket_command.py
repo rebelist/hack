@@ -1,32 +1,26 @@
 from unittest.mock import create_autospec
 
-from rebelist.hack.commands.jira.services import TicketFactory
+import pytest
+
 from rebelist.hack.commands.jira.ticket_command import CreateJiraTicketCommand
-from rebelist.hack.connectors import JiraGateway
-from rebelist.hack.connectors.agents import JiraTicketAgent
-from rebelist.hack.models.jira import DraftTicket, Ticket
+from rebelist.hack.domain.models import Ticket
+from rebelist.hack.infrastructure.jira import JiraGateway, JiraTicketComposer
 
 
+@pytest.mark.unit
 class TestCreateJiraTicketCommand:
-    def test_call_executes_workflow(self) -> None:
-        """Verify that __call__ orchestrates agent, factory, and gateway correctly."""
-        mock_factory = create_autospec(TicketFactory)
-        mock_agent = create_autospec(JiraTicketAgent)
-        mock_gateway = create_autospec(JiraGateway)
+    """Verify the use-case orchestrates composer and gateway in the right order."""
 
-        command = CreateJiraTicketCommand(mock_factory, mock_agent, mock_gateway)
+    def test_compose_then_persist_then_return_ticket(self) -> None:
+        """The command must compose a Ticket, persist it via the gateway, and return the persisted ticket."""
+        composer = create_autospec(JiraTicketComposer, instance=True)
+        ticket = Ticket(summary='Fix login', kind='Bug', description='D')
+        composer.compose.return_value = ticket
+        gateway = create_autospec(JiraGateway, instance=True)
+        command = CreateJiraTicketCommand(composer, gateway)
 
-        description = 'Test description'
-        draft = create_autospec(DraftTicket)
-        ticket = create_autospec(Ticket)
+        result = command('Make login work')
 
-        mock_agent.run.return_value = draft
-        mock_factory.create.return_value = ticket
-        mock_gateway.add_ticket.return_value = 'HACK-456'
-
-        result = command(description)
-
-        assert result == 'HACK-456'
-        mock_agent.run.assert_called_once_with(description)
-        mock_factory.create.assert_called_once_with(draft)
-        mock_gateway.add_ticket.assert_called_once_with(ticket)
+        composer.compose.assert_called_once_with('Make login work')
+        gateway.add_ticket.assert_called_once_with(ticket)
+        assert result is ticket
