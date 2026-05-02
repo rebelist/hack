@@ -35,7 +35,7 @@ class GitManager:
 
     def checkout_branch(self, name: str) -> str:
         """Create a branch named branch_name."""
-        return self.__execute(['checkout', '-b', name])
+        return self.__execute(['checkout', '-b', name], use_stderr=True)
 
     def get_current_branch(self) -> str:
         """Return the current branch name as a plain string."""
@@ -50,7 +50,7 @@ class GitManager:
 
         return self.__execute(command)
 
-    def __execute(self, arguments: list[str]) -> str:
+    def __execute(self, arguments: list[str], use_stderr: bool = False) -> str:
         command = [self._git, *arguments]
 
         try:
@@ -63,7 +63,8 @@ class GitManager:
                 encoding='utf-8',
                 timeout=self._timeout,
             )
-            return result.stdout.strip()
+            output = (result.stderr if use_stderr else result.stdout).strip()
+            return output
 
         except subprocess.TimeoutExpired as e:
             raise GitTimeoutError(command, e.timeout) from e

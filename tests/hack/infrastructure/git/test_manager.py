@@ -55,7 +55,7 @@ class TestGitManager:
 
     def test_checkout_branch_invokes_correct_argv(self, mocker: MockerFixture) -> None:
         """checkout_branch shells out to `git checkout -b <name>`."""
-        run = _install_run_mock(mocker, return_value=_completed_process(stdout='Switched to a new branch'))
+        run = _install_run_mock(mocker, return_value=_completed_process(stderr='Switched to a new branch'))
         manager = GitManager()
 
         output = manager.checkout_branch('feature/WS-1-foo')
