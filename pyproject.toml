@@ -1,6 +1,6 @@
 [project]
 name = "rebelist-hack"
-version = "0.3.1"
+version = "0.3.2"
 description = "An internal CLI tool that automates boring tasks to optimise team productivity and standardise development workflows."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"

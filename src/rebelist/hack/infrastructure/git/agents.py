@@ -68,6 +68,7 @@ class GitCommitComposer:
         commit = result.output
         prefix = self.__extract_message_prefix(branch_name)
         commit.subject = f'{prefix} {commit.subject}'.strip()
+        commit.body = commit.body.replace('<br>', '\n').replace('<br/>', '\n').replace('<br />', '\n')
 
         return commit
 
@@ -91,7 +92,8 @@ class GitCommitComposer:
            - Do not use type prefixes (e.g., no "feat:").
         2. **Body Field (Max 1000 chars):**
            - Explain the "why" and "what."
-           - **Crucial:** You must manually insert line breaks (`\n`) to ensure no single line exceeds 72 characters.
+           - **Crucial:** Insert actual newline characters (`\n`) — never HTML tags like `<br>` — so that no single
+             line exceeds 72 characters. Count characters and break the line before reaching the limit.
            - If the change is trivial, return an empty string for the body.
         3. **Tone:**
            - Technical, neutral, and direct.
