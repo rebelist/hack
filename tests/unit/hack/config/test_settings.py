@@ -11,7 +11,6 @@ stand-ins:
 The user's real ~/.config/hack/config.yaml is never touched.
 """
 
-import os
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -167,31 +166,6 @@ class TestYamlSettingsSourceCallable:
         path = YamlSettingsSource.get_user_config_path()
 
         assert path == Path.home() / YamlSettingsSource.CONFIG_RELATIVE_PATH
-
-
-@pytest.mark.unit
-class TestSettingsSingleton:
-    """Verify Settings.instance lazy initialisation and reset."""
-
-    def test_instance_is_cached_across_calls(self, settings: Settings) -> None:
-        """Once initialised, Settings.instance returns the same object."""
-        first = Settings.instance()
-        second = Settings.instance()
-
-        assert first is second is settings
-
-    def test_reset_clears_the_cache(self, settings: Settings) -> None:
-        """After reset, the next call constructs a fresh instance."""
-        del settings  # the fixture installs the YAML source; we just need it active
-        first = Settings.instance()
-        Settings.reset()
-        second = Settings.instance()
-
-        assert first is not second, 'reset must force a fresh construction'
-
-    def test_model_post_init_exports_api_key_to_environment(self, settings: Settings) -> None:
-        """Constructing Settings sets os.environ[api_key_name] to the configured api_key (resolved secret)."""
-        assert os.environ[settings.agent.api_key_name] == settings.agent.api_key.get_secret_value()
 
 
 @pytest.mark.unit

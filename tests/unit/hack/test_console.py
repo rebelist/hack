@@ -184,7 +184,7 @@ class TestConsoleCommands:
         self, cli_runner: CliRunner, mocker: MockerFixture, settings: Settings
     ) -> None:
         """A ValidationError raised by Container construction is re-raised as a SettingsError."""
-        del settings  # activates the fixture so Settings.instance() is cached
+        del settings
         with pytest.raises(ValidationError) as exc_info:
             GeneralSettings.model_validate({})
 

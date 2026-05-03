@@ -1,3 +1,4 @@
+import html
 import re
 from re import Pattern
 from textwrap import dedent
@@ -10,7 +11,7 @@ from rebelist.hack.domain.models import Branch, Commit, Ticket
 
 
 class GitBranchComposer:
-    _SYSTEM_PROMPT: Final[str] = dedent("""
+    SYSTEM_PROMPT: Final[str] = dedent("""
         ## Role
         You are a specialized Git workflow automation tool. Your goal is to generate a concise, kebab-case branch
         description based on ticket metadata.
@@ -53,29 +54,37 @@ class GitBranchComposer:
 
     def __build_system_prompt(self, _: RunContext) -> str:
         categories = ','.join(f'`{item.strip().lower()}`' for item in self.__git_settings.branch_categories)
-        return self._SYSTEM_PROMPT.format(categories=categories)
+        return self.SYSTEM_PROMPT.format(categories=categories)
 
 
 class GitCommitComposer:
     PREFIX_REGEX: Final[Pattern[str]] = re.compile(r'\b([A-Z][A-Z0-9]{1,9}-\d+)\b')
 
-    _SYSTEM_PROMPT: Final[str] = dedent("""
-        ## Role
-        You are a Senior Engineer. Your task is to transform raw commit descriptions into professional Git messages.
+    SYSTEM_PROMPT: Final[str] = dedent("""
+        # Role: Senior Engineer
+        # Task: Transform raw commit descriptions into professional Git messages.
 
-        ## Logic & Constraints
-        1. **Subject Field (Max 50 chars):**
-           - Use the imperative mood (e.g., "Add," "Fix," "Refactor").
-           - Capitalize the first letter; no trailing period.
-           - Do not use type prefixes (e.g., no "feat:").
-        2. **Body Field (Max 1000 chars):**
-           - Explain the "why" and "what."
-           - **Crucial:** Insert actual newline characters (`\\n`) — never HTML tags like `<br>` — so that no single
-             line exceeds 72 characters. Count characters and break the line before reaching the limit.
-           - If the change is trivial, return an empty string for the body.
-        3. **Tone:**
-           - Technical, neutral, and direct.
-           - No conversational filler or preamble.
+        ## 1. Subject Field
+        - **Length:** Maximum 50 characters.
+        - **Mood:** Use the imperative mood (e.g., "Add," "Fix," "Refactor").
+        - **Format:** Capitalize the first letter; no trailing period.
+        - **Constraint:** Do not use type prefixes (e.g., no "feat:", "fix:", or "chore:").
+
+        ## 2. Body Field
+        - **Content:** Explain the "why" and "what."
+        - **Formatting (Crucial):** Use `<br>` tags for ALL line breaks.
+        - **Line Length:** No single line of text may exceed 72 characters. You must manually count characters and
+          insert a `<br>` tag to wrap the text.
+        - **Prohibitions:**
+            - NEVER use actual newline characters (`\n`).
+            - NEVER use escaped newlines (`\\n`).
+            - Do not use markdown code blocks or backticks in the output.
+        - **Triviality:** If the change is trivial or self-explanatory, return an empty string for the body.
+
+        ## 3. Tone & Output
+        - **Style:** Technical, neutral, and direct.
+        - **Preamble:** No conversational filler or introductory text.
+        - **Output:** Return only the transformed text.
     """).strip()
 
     def __init__(self, model: str) -> None:
@@ -94,7 +103,7 @@ class GitCommitComposer:
     @staticmethod
     def __normalize_body(body: str) -> str:
         """Replace HTML line break variants with real newlines, LLMs occasionally emit these despite instructions."""
-        return body.replace('<br>', '\n').replace('<br/>', '\n').replace('<br />', '\n')
+        return re.sub(r'</?br\s*/?>', '\n', html.unescape(body), flags=re.IGNORECASE)
 
     def __extract_message_prefix(self, branch_name: str) -> str:
         if not branch_name:
@@ -105,4 +114,4 @@ class GitCommitComposer:
         return match.group(1) if match else ''
 
     def __build_system_prompt(self, _: RunContext) -> str:
-        return self._SYSTEM_PROMPT
+        return self.SYSTEM_PROMPT

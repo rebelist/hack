@@ -28,8 +28,39 @@ jobs:
               - 'tests/**'
               - 'uv.lock'
 
-  test:
+  lint:
     needs: check-diff
+    if: needs.check-diff.outputs.run-tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv sync --dev
+
+      - name: Ruff lint
+        run: uv run ruff check src tests
+
+      - name: Ruff format check
+        run: uv run ruff format --check src tests
+
+      - name: Pyright
+        run: uv run pyright
+
+  test:
+    needs: [ check-diff, lint ]
     if: needs.check-diff.outputs.run-tests == 'true'
     runs-on: ubuntu-latest
 

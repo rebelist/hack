@@ -139,6 +139,6 @@ class TestGitCommitComposer:
 
         prompt = _captured_prompt_callback(agent_class)(run_context)
 
-        assert 'Max 50 chars' in prompt
+        assert 'Maximum 50 characters' in prompt
         assert '72 characters' in prompt
         assert 'imperative' in prompt

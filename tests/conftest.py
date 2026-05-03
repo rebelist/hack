@@ -6,7 +6,6 @@ via a `create_autospec`-built mock — single, consistent mock-construction
 mechanism across the entire suite. No `MonkeyPatch`, no raw `MagicMock`.
 """
 
-from collections.abc import Iterator
 from importlib import metadata
 from pathlib import Path
 from unittest.mock import create_autospec
@@ -121,7 +120,7 @@ def settings(
     agent_settings: AgentSettings,
     jira_settings: JiraSettings,
     git_settings: GitSettings,
-) -> Iterator[Settings]:
+) -> Settings:
     """Build a fully isolated Settings instance via the production code path.
 
     Two free-standing callables the production source reads from are substituted
@@ -129,11 +128,7 @@ def settings(
       * `YamlSettingsSource.get_user_config_path` — points the source at a
         tmp_path-backed file so no real user config is touched.
       * `metadata.version` — pinned to general_settings.version for determinism.
-
-    Settings.instance() then constructs naturally — no manual cache priming.
     """
-    Settings.reset()
-
     config_path = tmp_path / YamlSettingsSource.CONFIG_RELATIVE_PATH
 
     _path_mock = create_autospec(YamlSettingsSource.get_user_config_path)
@@ -161,6 +156,4 @@ def settings(
         encoding='utf-8',
     )
 
-    instance = Settings.instance()
-    yield instance
-    Settings.reset()
+    return Settings()

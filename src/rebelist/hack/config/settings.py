@@ -3,7 +3,7 @@ import shutil
 from enum import StrEnum, auto
 from importlib import metadata
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Final, TypeGuard
+from typing import Annotated, Any, Final, TypeGuard
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SecretStr, ValidationError, field_validator
 from pydantic.fields import FieldInfo
@@ -208,11 +208,13 @@ class Settings(BaseSettings):
     jira: JiraSettings
     git: GitSettings
 
-    __instance: ClassVar[Settings | None] = None
-
     def __init__(self, **values: Any) -> None:
-        """Construct via Pydantic settings sources (YAML, env). All fields are populated by sources."""
+        """Construct via Pydantic settings sources (env, YAML). All fields are populated by sources."""
         super().__init__(**values)
+
+    def model_post_init(self, __context: Any) -> None:
+        """Set up environment variables after initialization."""
+        os.environ[self.agent.api_key_name] = self.agent.api_key.get_secret_value()
 
     @classmethod
     def settings_customise_sources(
@@ -230,21 +232,9 @@ class Settings(BaseSettings):
             env_settings,
         )
 
-    def model_post_init(self, __context: Any) -> None:
-        """Set up environment variables after initialization."""
-        os.environ[self.agent.api_key_name] = self.agent.api_key.get_secret_value()
-
-    @classmethod
-    def instance(cls) -> Settings:
-        """Return the lazily initialized singleton instance."""
-        if cls.__instance is not None:
-            return cls.__instance
-
-        instance = cls()
-        cls.__instance = instance
-        return instance
-
-    @classmethod
-    def reset(cls) -> None:
-        """Clear the cached singleton. Intended for tests only."""
-        cls.__instance = None
+    @staticmethod
+    def get_metadata() -> tuple[str, str]:
+        """Return (app_name, version) without loading the full Settings graph."""
+        name = YamlSettingsSource.PACKAGE_NAME.split('-')[1]
+        version = metadata.version(YamlSettingsSource.PACKAGE_NAME)
+        return name, version

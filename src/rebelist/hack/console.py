@@ -9,7 +9,7 @@ from rich.table import Table
 from typer import Argument, Context, Exit, Option, Typer
 
 from rebelist.hack.config.container import Container
-from rebelist.hack.config.settings import Settings, SettingsError
+from rebelist.hack.config.settings import Settings, SettingsError, YamlSettingsSource
 
 console = Console()
 error_console = Console(stderr=True)
@@ -58,16 +58,16 @@ def bootstrap(
 ) -> None:
     """Bootstrap the console and handle global options."""
     try:
-        container = Container(Settings.instance())
+        container = Container(Settings())
     except ValidationError as error:
         raise SettingsError.from_validation_error(error) from error
 
     context.obj = ApplicationState(container=container, debug=debug)
 
     if version or context.invoked_subcommand is None:
-        name = container.settings.general.name.lower()
-        console.print(f'{name.capitalize()} - v{container.settings.general.version}')
-        console.print(f'Run [green]{name}[/green] [yellow]--help[/yellow] for more information.')
+        metadata = Settings.get_metadata()
+        console.print(f'{metadata[0].capitalize()} - v{metadata[1]}')
+        console.print(f'Run [green]{metadata[0]}[/green] [yellow]--help[/yellow] for more information.')
         raise Exit()
 
 
@@ -87,6 +87,7 @@ def diagnose_command(context: Context) -> None:
     table.add_row('Version', f'v{settings.general.version}')
     table.add_row('Python', sys.version.split()[0])
     table.add_row('Config Class', settings.__class__.__name__)
+    table.add_row('Config Path', str(YamlSettingsSource.get_user_config_path()))
     table.add_section()
 
     table.add_section()
@@ -127,9 +128,9 @@ def jira_ticket_command(
         ticket = state.container.create_ticket_command(description, dry_run=dry_run)
 
     if dry_run:
-        console.print('[yellow]Dry run — no ticket created![/yellow]')
-        table = Table(show_header=False, width=120)
-        table.add_column('Property', style='yellow', no_wrap=True)
+        console.print('[tan]Dry run — no ticket created![/tan]')
+        table = Table(show_header=True, width=120, show_lines=True)
+        table.add_column('Section', style='yellow', no_wrap=True)
         table.add_column('Value')
 
         table.add_row('Summary', ticket.summary)
@@ -155,7 +156,7 @@ def git_checkout_branch_command(
         output = state.container.git_checkout_branch_command(ticket_key, dry_run=dry_run)
 
     if dry_run:
-        console.print(f'[yellow]Dry run —[/yellow] would checkout: {output}')
+        console.print(f'[tan]Dry run — would checkout:[/tan] {output}')
         return
     console.print(output)
 
@@ -173,7 +174,7 @@ def git_commit_command(
         output = state.container.git_commit_command(description, dry_run=dry_run)
 
     if dry_run:
-        console.print('[yellow]Dry run — no commit created.[/yellow]')
+        console.print('[tan]Dry run — no commit created.[/tan]')
     console.print(output)
 
 
