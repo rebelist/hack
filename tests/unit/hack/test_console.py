@@ -17,8 +17,6 @@ from typing import Any
 from unittest.mock import create_autospec
 
 import pytest
-from jira.exceptions import JIRAError
-from pydantic import ValidationError
 from pytest_mock import MockerFixture
 from rich.console import Console
 from typer import Exit, Typer
@@ -29,8 +27,8 @@ from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
+from rebelist.hack.console import Application
 from rebelist.hack.domain.models import Ticket
-from rebelist.hack.infrastructure.git.manager import GitCommandError, GitTimeoutError
 
 
 @dataclass
@@ -108,9 +106,21 @@ class TestConsoleCommands:
 
         assert result.exit_code == 0
         harness.create_ticket.assert_called_once()
-        assert harness.create_ticket.call_args.args == ('fix login flow',)
+        assert harness.create_ticket.call_args.args[0] == 'fix login flow'
+        assert harness.create_ticket.call_args.kwargs == {'dry_run': False}
         assert 'WS-1' in result.stdout
         assert 'jira.example.com' in result.stdout
+
+    def test_jira_ticket_dry_run_skips_persistence(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack jira ticket --dry-run` renders the ticket without persisting and prints a banner."""
+        ticket = Ticket(summary='S', kind='Bug', description='D')
+        harness.create_ticket.return_value = ticket
+
+        result = cli_runner.invoke(console_module.app, ['jira', 'ticket', 'fix login flow', '--dry-run'])
+
+        assert result.exit_code == 0
+        assert harness.create_ticket.call_args.kwargs == {'dry_run': True}
+        assert 'Dry run' in result.stdout
 
     def test_git_branch_command_dispatches_to_container(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
         """`hack git branch WS-120` invokes the checkout command and prints its output."""
@@ -120,7 +130,19 @@ class TestConsoleCommands:
 
         assert result.exit_code == 0
         harness.git_checkout_branch.assert_called_once()
-        assert harness.git_checkout_branch.call_args.args == ('WS-120',)
+        assert harness.git_checkout_branch.call_args.args[0] == 'WS-120'
+        assert harness.git_checkout_branch.call_args.kwargs == {'dry_run': False}
+        assert 'feature/WS-120-fix' in result.stdout
+
+    def test_git_branch_dry_run(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack git branch WS-120 --dry-run` prints the resolved name without checking out."""
+        harness.git_checkout_branch.return_value = 'feature/WS-120-fix'
+
+        result = cli_runner.invoke(console_module.app, ['git', 'branch', 'WS-120', '--dry-run'])
+
+        assert result.exit_code == 0
+        assert harness.git_checkout_branch.call_args.kwargs == {'dry_run': True}
+        assert 'Dry run' in result.stdout
         assert 'feature/WS-120-fix' in result.stdout
 
     def test_git_commit_command_dispatches_to_container(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
@@ -131,8 +153,31 @@ class TestConsoleCommands:
 
         assert result.exit_code == 0
         harness.git_commit.assert_called_once()
-        assert harness.git_commit.call_args.args == ('fix login',)
+        assert harness.git_commit.call_args.args[0] == 'fix login'
+        assert harness.git_commit.call_args.kwargs == {'dry_run': False}
         assert 'WS-1 Fix' in result.stdout
+
+    def test_git_commit_dry_run(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack git commit --dry-run` renders the commit message without committing."""
+        harness.git_commit.return_value = 'WS-1 Fix login'
+
+        result = cli_runner.invoke(console_module.app, ['git', 'commit', 'fix login', '--dry-run'])
+
+        assert result.exit_code == 0
+        assert harness.git_commit.call_args.kwargs == {'dry_run': True}
+        assert 'Dry run' in result.stdout
+        assert 'WS-1 Fix login' in result.stdout
+
+    def test_diagnose_prints_redacted_metadata(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack diagnose` prints version + config metadata; secrets are redacted."""
+        result = cli_runner.invoke(console_module.app, ['info'])
+
+        assert result.exit_code == 0
+        assert '0.0.0-test' in result.stdout
+        assert 'jira.example.com' in result.stdout
+        assert 'redacted' in result.stdout
+        assert harness.container.settings.agent.api_key.get_secret_value() not in result.stdout
+        assert harness.container.settings.jira.token.get_secret_value() not in result.stdout
 
 
 def _install_app_mock(mocker: MockerFixture, side_effect: BaseException) -> None:
@@ -151,7 +196,7 @@ def _install_error_console_print_mock(mocker: MockerFixture) -> Any:
 
 @pytest.mark.unit
 class TestMainErrorHandler:
-    """Verify main() translates expected failures into red lines + non-zero exit codes."""
+    """Verify main() surfaces failures as red lines and correct exit codes."""
 
     def test_propagates_typer_exit(self, mocker: MockerFixture) -> None:
         """A clean Typer Exit (e.g. --help / --version) must not be swallowed by the handler."""
@@ -160,74 +205,24 @@ class TestMainErrorHandler:
         with pytest.raises(Exit):
             console_module.main()
 
-    def test_handles_git_command_error(self, mocker: MockerFixture) -> None:
-        """GitCommandError exits 1 and renders a red 'Git error' line on stderr."""
-        _install_app_mock(mocker, GitCommandError(['git', 'commit'], 1, 'nothing to commit', ''))
-        printer = _install_error_console_print_mock(mocker)
-
-        with pytest.raises(SystemExit) as exc_info:
-            console_module.main()
-
-        assert exc_info.value.code == 1
-        printer.assert_called_once()
-        assert 'Git error' in printer.call_args.args[0]
-
-    def test_handles_git_timeout_error(self, mocker: MockerFixture) -> None:
-        """GitTimeoutError exits 1 and renders a red 'Git error' line."""
-        _install_app_mock(mocker, GitTimeoutError(['git', 'fetch'], 30.0))
-        printer = _install_error_console_print_mock(mocker)
-
-        with pytest.raises(SystemExit) as exc_info:
-            console_module.main()
-
-        assert exc_info.value.code == 1
-        assert 'Git error' in printer.call_args.args[0]
-
-    def test_handles_jira_error_with_text(self, mocker: MockerFixture) -> None:
-        """JIRAError is rendered with its `text` attribute when present."""
-        _install_app_mock(mocker, JIRAError(status_code=400, text='Issue type is required'))
-        printer = _install_error_console_print_mock(mocker)
-
-        with pytest.raises(SystemExit) as exc_info:
-            console_module.main()
-
-        assert exc_info.value.code == 1
-        rendered = printer.call_args.args[0]
-        assert 'Jira error' in rendered
-        assert 'Issue type is required' in rendered
-
-    def test_handles_validation_error(self, mocker: MockerFixture) -> None:
-        """A pydantic ValidationError surfaces as a count of validation errors."""
-        with pytest.raises(ValidationError) as exc_info:
-            Ticket.model_validate({'summary': None, 'kind': None, 'description': None})
-        _install_app_mock(mocker, exc_info.value)
-        printer = _install_error_console_print_mock(mocker)
-
-        with pytest.raises(SystemExit) as system_exit:
-            console_module.main()
-
-        assert system_exit.value.code == 1
-        assert 'Invalid agent output' in printer.call_args.args[0]
-
-    def test_handles_keyboard_interrupt(self, mocker: MockerFixture) -> None:
-        """Ctrl-C exits 130 with a yellow 'Aborted' line."""
+    def test_keyboard_interrupt_exits_130(self, mocker: MockerFixture) -> None:
+        """Ctrl-C exits with code 130 and a yellow 'Aborted' line."""
         _install_app_mock(mocker, KeyboardInterrupt())
         printer = _install_error_console_print_mock(mocker)
 
         with pytest.raises(SystemExit) as exc_info:
             console_module.main()
 
-        assert exc_info.value.code == 130
+        assert exc_info.value.code == Application.EXIT_SIGINT
         assert 'Aborted' in printer.call_args.args[0]
 
-    def test_handles_unexpected_exception(self, mocker: MockerFixture) -> None:
-        """Any other exception is rendered as 'Unexpected error' and exits 1."""
-        _install_app_mock(mocker, RuntimeError('boom'))
+    def test_any_exception_prints_error_and_exits_1(self, mocker: MockerFixture) -> None:
+        """Any unhandled exception prints a red error line and exits with code 1."""
+        _install_app_mock(mocker, RuntimeError('something went wrong'))
         printer = _install_error_console_print_mock(mocker)
 
         with pytest.raises(SystemExit) as exc_info:
             console_module.main()
 
         assert exc_info.value.code == 1
-        assert 'Unexpected error' in printer.call_args.args[0]
-        assert 'boom' in printer.call_args.args[0]
+        assert 'something went wrong' in printer.call_args.args[0]

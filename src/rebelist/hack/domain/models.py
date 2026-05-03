@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 
 class Ticket(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     key: Annotated[str | None, Field(description="Unique identifier (e.g., 'MD-1234').")] = None
     summary: Annotated[str, Field(description='Descriptive headline of the task.')]
     kind: Annotated[str, Field(description='Category that defines the nature of the work item.')]
@@ -13,22 +13,22 @@ class Ticket(BaseModel):
 
 class Branch(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
-    prefix: Annotated[str, Field(description='The branch category.')]
+    prefix: Annotated[str, StringConstraints(to_lower=True), Field(description='The branch category.')]
     name: Annotated[
         str,
-        StringConstraints(pattern=r'^[a-z0-9]+(?:-[a-z0-9]+)*$', max_length=60, to_lower=True),
+        StringConstraints(pattern=r'^[a-z0-9]+(?:-[a-z0-9]+)*$', max_length=60),
         Field(description="Kebab-case summary of the task (e.g., 'fix-php-worker-memory-leak')."),
     ]
 
     @field_validator('name', mode='before')
     @classmethod
     def _format_kebab_case(cls, v: str) -> str:
-        """Format kebab-case."""
-        return '-'.join(v.split())
+        """Normalize to lowercase kebab-case before pattern validation."""
+        return '-'.join(v.lower().split())
 
 
 class Commit(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     subject: Annotated[
         str,
         StringConstraints(max_length=50),

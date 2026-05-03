@@ -45,11 +45,11 @@ class JiraGateway:
         self.__client = client
         self.__mapper = mapper
 
-    def add_ticket(self, ticket: Ticket) -> None:
-        """Add a new jira ticket."""
+    def add_ticket(self, ticket: Ticket) -> Ticket:
+        """Add a new jira ticket and return a copy with the assigned key."""
         data = self.__mapper.to_dict(ticket)
         issue = self.__client.create_issue(fields=data)
-        ticket.key = issue.key
+        return ticket.model_copy(update={'key': issue.key})
 
     def get_ticket(self, key: str) -> Ticket:
         """Get a jira ticket."""

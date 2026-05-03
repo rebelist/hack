@@ -39,7 +39,11 @@ def general_settings() -> GeneralSettings:
 @pytest.fixture
 def agent_settings() -> AgentSettings:
     """Provide a deterministic AgentSettings fixture."""
-    return AgentSettings(model='test:dummy-model', api_key_name='TEST_API_KEY', api_key='secret')
+    return AgentSettings(
+        model='test:dummy-model',
+        api_key_name='TEST_API_KEY',
+        api_key='secret',  # type: ignore[arg-type]
+    )
 
 
 @pytest.fixture
@@ -94,7 +98,7 @@ def jira_settings(
     """Provide a deterministic JiraSettings fixture."""
     return JiraSettings(
         host='https://jira.example.com',
-        token='token-value',
+        token='token-value',  # type: ignore[arg-type]
         fields=jira_fields_settings,
         custom_fields=jira_custom_fields_settings,
         templates=jira_template_settings,
@@ -104,7 +108,9 @@ def jira_settings(
 @pytest.fixture
 def git_settings() -> GitSettings:
     """Provide a deterministic GitSettings fixture."""
-    return GitSettings(branch_categories=['feature', 'bugfix', 'hotfix', 'refactor', 'docs', 'chore'])
+    return GitSettings(
+        branch_categories=['feature', 'bugfix', 'hotfix', 'refactor', 'docs', 'chore'],
+    )
 
 
 @pytest.fixture
@@ -139,11 +145,15 @@ def settings(
     mocker.patch.object(settings_module.metadata, 'version', new=_version_mock)
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    agent_payload = agent_settings.model_dump(mode='json')
+    agent_payload['api_key'] = agent_settings.api_key.get_secret_value()
+    jira_payload = jira_settings.model_dump(mode='json')
+    jira_payload['token'] = jira_settings.token.get_secret_value()
     config_path.write_text(
         safe_dump(
             {
-                'agent': agent_settings.model_dump(mode='json'),
-                'jira': jira_settings.model_dump(mode='json'),
+                'agent': agent_payload,
+                'jira': jira_payload,
                 'git': git_settings.model_dump(mode='json'),
             },
             sort_keys=False,

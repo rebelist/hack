@@ -27,7 +27,7 @@ from rebelist.hack.infrastructure.jira.adapter import JiraGateway, JiraMapper
 def _settings_with(custom_fields: list[JiraIssueCustomFieldSettings]) -> JiraSettings:
     return JiraSettings(
         host='https://jira.example.com',
-        token='tok',
+        token='tok',  # type: ignore[arg-type]
         fields=JiraIssueFieldsSettings(project='XX', reporter='alice', issue_types=['Bug']),
         custom_fields=custom_fields,
     )
@@ -159,8 +159,8 @@ class TestJiraMapper:
 class TestJiraGateway:
     """Verify gateway delegates to the JIRA client and the mapper."""
 
-    def test_add_ticket_calls_create_issue_and_writes_back_key(self) -> None:
-        """JiraGateway.add_ticket delegates to JIRA.create_issue and stores the issued key on the ticket."""
+    def test_add_ticket_calls_create_issue_and_returns_keyed_copy(self) -> None:
+        """add_ticket delegates to JIRA.create_issue and returns a copy of the ticket with the issued key."""
         client = create_autospec(JIRA, instance=True)
         client.create_issue.return_value = SimpleNamespace(key='WS-42')
         mapper = create_autospec(JiraMapper, instance=True)
@@ -168,11 +168,12 @@ class TestJiraGateway:
         gateway = JiraGateway(client, mapper)
         ticket = Ticket(summary='S', kind='Bug', description='D')
 
-        gateway.add_ticket(ticket)
+        result = gateway.add_ticket(ticket)
 
         mapper.to_dict.assert_called_once_with(ticket)
         client.create_issue.assert_called_once_with(fields={'summary': 'S'})
-        assert ticket.key == 'WS-42'
+        assert result.key == 'WS-42'
+        assert ticket.key is None
 
     def test_get_ticket_constructs_ticket_from_jira_issue(self) -> None:
         """JiraGateway.get_ticket fetches the issue and maps it to a domain Ticket."""

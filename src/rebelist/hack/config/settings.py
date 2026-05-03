@@ -5,10 +5,29 @@ from importlib import metadata
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Final, TypeGuard
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, SecretStr, ValidationError, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from yaml import safe_dump, safe_load
+
+############################################
+#              Errors
+############################################
+
+
+class SettingsError(Exception):
+    """Raised when the user's YAML configuration cannot be loaded or validated."""
+
+    @classmethod
+    def from_validation_error(cls, validation: ValidationError) -> SettingsError:
+        """Build a human-readable message from a Pydantic ValidationError."""
+        parts: list[str] = []
+        for error in validation.errors():
+            loc = '.'.join(str(segment) for segment in error['loc'])
+            msg = str(error['msg']).removeprefix('Value error, ')
+            parts.append(f'{loc}: {msg}' if loc else msg)
+        return cls('; '.join(parts))
+
 
 ############################################
 #              Models
@@ -37,7 +56,7 @@ class AgentSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     model: NonEmptyString
     api_key_name: NonEmptyString
-    api_key: NonEmptyString
+    api_key: SecretStr
 
 
 class JiraIssueFieldsSettings(BaseModel):
@@ -67,10 +86,18 @@ class JiraIssueDescriptionTemplateSettings(BaseModel):
 class JiraSettings(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
     host: NonEmptyString
-    token: NonEmptyString
+    token: SecretStr
     fields: JiraIssueFieldsSettings
     custom_fields: list[JiraIssueCustomFieldSettings] = []
     templates: list[JiraIssueDescriptionTemplateSettings] = []
+
+    @field_validator('token', mode='before')
+    @classmethod
+    def _reject_placeholder_token(cls, v: Any) -> Any:
+        """Reject the config template placeholder so users get a clear error instead of an auth failure."""
+        if isinstance(v, str) and v.strip().lower() in ('none', ''):
+            raise ValueError('Jira token is not configured. Set a valid API token in ~/.config/hack/config.yaml.')
+        return v
 
     @field_validator('custom_fields', 'templates', mode='before')
     @classmethod
@@ -129,9 +156,6 @@ class YamlSettingsSource(PydanticBaseSettingsSource):
         if not user_config.exists():
             user_config.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(template_config, user_config)
-
-        if not user_config.exists():
-            raise FileNotFoundError(f'Config file not found: {user_config}')
 
         user_data: dict[str, Any] = safe_load(user_config.read_text(encoding='utf-8')) or {}
         template_data: dict[str, Any] = safe_load(template_config.read_text(encoding='utf-8')) or {}
@@ -208,7 +232,7 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context: Any) -> None:
         """Set up environment variables after initialization."""
-        os.environ[self.agent.api_key_name] = self.agent.api_key
+        os.environ[self.agent.api_key_name] = self.agent.api_key.get_secret_value()
 
     @classmethod
     def instance(cls) -> Settings:

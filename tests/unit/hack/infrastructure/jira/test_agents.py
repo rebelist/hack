@@ -78,7 +78,7 @@ class TestJiraTicketComposer:
         """Regression: templates containing { or } must not blow up prompt assembly."""
         settings = JiraSettings(
             host='https://jira.example.com',
-            token='tok',
+            token='tok',  # type: ignore[arg-type]
             fields=JiraIssueFieldsSettings(project='X', reporter='alice', issue_types=['Bug']),
             templates=[
                 JiraIssueDescriptionTemplateSettings(

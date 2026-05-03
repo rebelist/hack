@@ -25,13 +25,21 @@ class TestTicket:
         assert ticket.kind == 'Bug'
         assert ticket.description == 'h2. Steps'
 
-    def test_key_is_mutable_to_support_post_creation_assignment(self) -> None:
-        """JiraGateway.add_ticket assigns the key after Jira returns it; this must not raise."""
+    def test_is_frozen(self) -> None:
+        """Ticket is immutable; the gateway returns a fresh copy with the assigned key."""
         ticket = Ticket(summary='S', kind='Bug', description='D')
 
-        ticket.key = 'MD-1234'
+        with pytest.raises(ValidationError):
+            ticket.key = 'MD-1234'
 
-        assert ticket.key == 'MD-1234'
+    def test_model_copy_returns_new_ticket_with_key(self) -> None:
+        """Persistence flow uses model_copy to obtain a keyed ticket without mutation."""
+        ticket = Ticket(summary='S', kind='Bug', description='D')
+
+        keyed = ticket.model_copy(update={'key': 'MD-1234'})
+
+        assert ticket.key is None
+        assert keyed.key == 'MD-1234'
 
 
 @pytest.mark.unit
@@ -45,10 +53,11 @@ class TestBranch:
         assert branch.prefix == 'feature'
         assert branch.name == 'fix-php-worker-memory-leak'
 
-    def test_rejects_uppercase_letters_in_name(self) -> None:
-        """The kebab-case regex runs before to_lower, so uppercase input is rejected."""
-        with pytest.raises(ValidationError):
-            Branch(prefix='feature', name='Fix-Memory-Leak')
+    def test_lowercases_uppercase_letters_in_name(self) -> None:
+        """to_lower normalizes uppercase input — LLMs are non-deterministic so silent correction is preferable."""
+        branch = Branch(prefix='feature', name='Fix-Memory-Leak')
+
+        assert branch.name == 'fix-memory-leak'
 
     def test_coalesces_whitespace_into_hyphens(self) -> None:
         """The pre-validator joins whitespace-separated tokens with hyphens before pattern check."""
@@ -108,10 +117,18 @@ class TestCommit:
         with pytest.raises(ValidationError):
             Commit(subject='Fix', body='a' * 1001)
 
-    def test_subject_is_mutable_to_support_ticket_prefixing(self) -> None:
-        """GitCommitComposer prepends the ticket key after construction; mutation must not raise."""
+    def test_is_frozen(self) -> None:
+        """Commit is immutable; ticket-prefixing uses model_copy to produce a fresh instance."""
         commit = Commit(subject='Fix login bug')
 
-        commit.subject = 'WS-120 Fix login bug'
+        with pytest.raises(ValidationError):
+            commit.subject = 'WS-120 Fix login bug'
 
-        assert commit.subject == 'WS-120 Fix login bug'
+    def test_model_copy_yields_prefixed_commit(self) -> None:
+        """The composer's prefix step is expressed via model_copy; original is untouched."""
+        commit = Commit(subject='Fix login bug')
+
+        prefixed = commit.model_copy(update={'subject': 'WS-120 Fix login bug'})
+
+        assert commit.subject == 'Fix login bug'
+        assert prefixed.subject == 'WS-120 Fix login bug'

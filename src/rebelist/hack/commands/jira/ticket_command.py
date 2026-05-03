@@ -7,9 +7,9 @@ class CreateJiraTicketCommand:
         self.__jira_ticket_composer = jira_ticket_composer
         self.__jira_gateway = jira_gateway
 
-    def __call__(self, description: str) -> Ticket:
+    def __call__(self, description: str, dry_run: bool = False) -> Ticket:
         """Create a new jira ticket with the given description."""
         ticket = self.__jira_ticket_composer.compose(description)
-        self.__jira_gateway.add_ticket(ticket)
-
-        return ticket
+        if dry_run:
+            return ticket
+        return self.__jira_gateway.add_ticket(ticket)

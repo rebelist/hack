@@ -17,7 +17,7 @@ class Container:
     def jira_gateway(self) -> JiraGateway:
         """Jira connector instance."""
         return JiraGateway(
-            JIRA(self.settings.jira.host, token_auth=self.settings.jira.token),
+            JIRA(self.settings.jira.host, token_auth=self.settings.jira.token.get_secret_value()),
             JiraMapper(self.settings.jira),
         )
 
@@ -36,7 +36,8 @@ class Container:
     @cached_property
     def git_commit_command(self) -> CommitCommand:
         """Commit command instance."""
-        return CommitCommand(GitCommitComposer(self.settings.agent.model), self.git_manager)
+        composer = GitCommitComposer(self.settings.agent.model)
+        return CommitCommand(composer, self.git_manager)
 
     @cached_property
     def git_manager(self) -> GitManager:

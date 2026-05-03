@@ -41,7 +41,9 @@ def _full_template_data() -> dict[str, Any]:
     """Build a payload that mirrors the bundled template."""
     return {
         'agent': {'model': 'test:model', 'api_key_name': 'TEST_API_KEY', 'api_key': 'secret'},
-        'git': {'branch_categories': ['feature', 'bugfix']},
+        'git': {
+            'branch_categories': ['feature', 'bugfix'],
+        },
         'jira': {
             'host': 'https://jira.example.com',
             'token': 'token',
@@ -185,8 +187,8 @@ class TestSettingsSingleton:
         assert first is not second, 'reset must force a fresh construction'
 
     def test_model_post_init_exports_api_key_to_environment(self, settings: Settings) -> None:
-        """Constructing Settings sets os.environ[api_key_name] to the configured api_key."""
-        assert os.environ[settings.agent.api_key_name] == settings.agent.api_key
+        """Constructing Settings sets os.environ[api_key_name] to the configured api_key (resolved secret)."""
+        assert os.environ[settings.agent.api_key_name] == settings.agent.api_key.get_secret_value()
 
 
 @pytest.mark.unit
@@ -207,6 +209,28 @@ class TestJiraSettingsValidator:
 
         assert jira.custom_fields == []
         assert jira.templates == []
+
+    def test_placeholder_token_is_rejected(self) -> None:
+        """The string 'None' (the config template default) must fail validation with a clear message."""
+        with pytest.raises(ValueError, match='Jira token is not configured'):
+            JiraSettings.model_validate(
+                {
+                    'host': 'https://jira.example.com',
+                    'token': 'None',
+                    'fields': {'project': 'X', 'reporter': 'alice', 'issue_types': ['Bug']},
+                }
+            )
+
+    def test_empty_token_is_rejected(self) -> None:
+        """An empty Jira token must also fail with a clear message."""
+        with pytest.raises(ValueError, match='Jira token is not configured'):
+            JiraSettings.model_validate(
+                {
+                    'host': 'https://jira.example.com',
+                    'token': '',
+                    'fields': {'project': 'X', 'reporter': 'alice', 'issue_types': ['Bug']},
+                }
+            )
 
     def test_custom_field_id_pattern_is_enforced(self) -> None:
         r"""The custom-field name must match `customfield_\d+`."""

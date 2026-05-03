@@ -55,7 +55,7 @@ class TestGitBranchComposer:
         agent_class.return_value.run_sync.assert_called_once()
 
     def test_system_prompt_lists_all_categories(self, mocker: MockerFixture, git_settings: GitSettings) -> None:
-        """The system prompt lists every configured branch category in lowercase."""
+        """The system prompt interpolates every configured branch category in lowercase."""
         agent_class = _install_agent_mock(mocker)
         GitBranchComposer('test:dummy', git_settings)
         run_context = create_autospec(RunContext, instance=True)
@@ -64,6 +64,7 @@ class TestGitBranchComposer:
 
         for category in git_settings.branch_categories:
             assert f'`{category.lower()}`' in prompt
+        assert '{categories}' not in prompt
 
 
 @pytest.mark.unit
@@ -118,13 +119,26 @@ class TestGitCommitComposer:
 
         assert commit.subject == 'WS-42 Fix login'
 
-    def test_system_prompt_mentions_imperative_and_72_char_wrap(self, mocker: MockerFixture) -> None:
-        """The system prompt encodes the project's commit-style rules."""
+    def test_compose_normalizes_html_line_breaks_in_body(self, mocker: MockerFixture) -> None:
+        """HTML <br> variants returned by the LLM are converted to real newlines via normalize_body."""
+        agent_class = _install_agent_mock(mocker)
+        _run_result = create_autospec(AgentRunResult, instance=True)
+        _run_result.output = Commit(subject='Fix login', body='line1<br>line2<br/>line3<br />line4')
+        agent_class.return_value.run_sync.return_value = _run_result
+        composer = GitCommitComposer('test:dummy')
+
+        commit = composer.compose('fix login flow')
+
+        assert commit.body == 'line1\nline2\nline3\nline4'
+
+    def test_system_prompt_contains_commit_constraints(self, mocker: MockerFixture) -> None:
+        """The system prompt encodes the subject length and body line-wrap constraints."""
         agent_class = _install_agent_mock(mocker)
         GitCommitComposer('test:dummy')
         run_context = create_autospec(RunContext, instance=True)
 
         prompt = _captured_prompt_callback(agent_class)(run_context)
 
-        assert 'imperative mood' in prompt
+        assert 'Max 50 chars' in prompt
         assert '72 characters' in prompt
+        assert 'imperative' in prompt

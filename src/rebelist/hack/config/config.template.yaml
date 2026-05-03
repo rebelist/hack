@@ -14,7 +14,7 @@ git:
 
 jira:
   host: "https://jira.example.com" # Jira API host.
-  token: "None" # Jira API token.
+  token: "None" # Required: replace with your Jira API token.
   fields:
     project: "XX" # Jira project key.
     reporter: "bob" # A Jira username.
