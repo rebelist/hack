@@ -132,6 +132,24 @@ class TestJiraMapper:
 
         assert payload['customfield_10004'] == '5'
 
+    def test_processes_multiple_field_types_in_order(self) -> None:
+        """All custom fields are mapped regardless of their position in the list."""
+        settings = _settings_with(
+            [
+                JiraIssueCustomFieldSettings(
+                    name='customfield_10004', alias='points', field_type=JiraIssueCustomFieldType.TEXT, value='5'
+                ),
+                JiraIssueCustomFieldSettings(
+                    name='customfield_10001', alias='owner', field_type=JiraIssueCustomFieldType.USER, value='alice'
+                ),
+            ]
+        )
+
+        payload = JiraMapper(settings).to_dict(Ticket(summary='S', kind='Bug', description='D'))
+
+        assert payload['customfield_10004'] == '5'
+        assert payload['customfield_10001'] == {'name': 'alice'}
+
     def test_skips_custom_fields_with_empty_value(self) -> None:
         """Custom fields with falsy values (None, '', []) are not emitted at all."""
         settings = _settings_with(

@@ -18,16 +18,19 @@ from typing import Any
 from unittest.mock import create_autospec
 
 import pytest
+from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 from pytest_mock import MockerFixture
 from yaml import safe_dump, safe_load
 
 from rebelist.hack.config import settings as settings_module
 from rebelist.hack.config.settings import (
+    GeneralSettings,
     JiraIssueCustomFieldSettings,
     JiraIssueCustomFieldType,
     JiraSettings,
     Settings,
+    SettingsError,
     YamlSettingsSource,
 )
 
@@ -241,3 +244,17 @@ class TestJiraSettingsValidator:
                 field_type=JiraIssueCustomFieldType.USER,
                 value='alice',
             )
+
+
+@pytest.mark.unit
+class TestSettingsError:
+    """Verify SettingsError.from_validation_error message formatting."""
+
+    def test_from_validation_error_formats_field_location_and_message(self) -> None:
+        """Pydantic errors are converted to 'field: message' strings joined by semicolons."""
+        with pytest.raises(ValidationError) as exc_info:
+            GeneralSettings.model_validate({})
+
+        error = SettingsError.from_validation_error(exc_info.value)
+
+        assert 'Field required' in str(error)

@@ -12,13 +12,14 @@ the bound `__call__` signature. We sidestep this by asserting on
 `mock.call_args.args` directly — same intent, no workaround in production code.
 """
 
+import sys
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import create_autospec
 
 import pytest
+from pydantic import ValidationError
 from pytest_mock import MockerFixture
-from rich.console import Console
 from typer import Exit, Typer
 from typer.testing import CliRunner
 
@@ -26,7 +27,7 @@ from rebelist.hack import console as console_module
 from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
 from rebelist.hack.config.container import Container
-from rebelist.hack.config.settings import Settings
+from rebelist.hack.config.settings import GeneralSettings, Settings, SettingsError
 from rebelist.hack.console import Application
 from rebelist.hack.domain.models import Ticket
 
@@ -179,6 +180,22 @@ class TestConsoleCommands:
         assert harness.container.settings.agent.api_key.get_secret_value() not in result.stdout
         assert harness.container.settings.jira.token.get_secret_value() not in result.stdout
 
+    def test_bootstrap_wraps_validation_error_as_settings_error(
+        self, cli_runner: CliRunner, mocker: MockerFixture, settings: Settings
+    ) -> None:
+        """A ValidationError raised by Container construction is re-raised as a SettingsError."""
+        del settings  # activates the fixture so Settings.instance() is cached
+        with pytest.raises(ValidationError) as exc_info:
+            GeneralSettings.model_validate({})
+
+        container_class_mock = create_autospec(Container)
+        container_class_mock.side_effect = exc_info.value
+        mocker.patch.object(console_module, 'Container', new=container_class_mock)
+
+        result = cli_runner.invoke(console_module.app, ['--version'])
+
+        assert isinstance(result.exception, SettingsError)
+
 
 def _install_app_mock(mocker: MockerFixture, side_effect: BaseException) -> None:
     """Substitute console.app with an autospec'd Typer instance that raises the given exception when called."""
@@ -189,7 +206,7 @@ def _install_app_mock(mocker: MockerFixture, side_effect: BaseException) -> None
 
 def _install_error_console_print_mock(mocker: MockerFixture) -> Any:
     """Substitute error_console.print with an autospec'd callable so tests can read the rendered message."""
-    print_mock = create_autospec(Console.print)
+    print_mock = create_autospec(console_module.error_console.print)
     mocker.patch.object(console_module.error_console, 'print', new=print_mock)
     return print_mock
 
@@ -226,3 +243,16 @@ class TestMainErrorHandler:
 
         assert exc_info.value.code == 1
         assert 'something went wrong' in printer.call_args.args[0]
+
+    def test_exception_with_debug_flag_also_prints_stack_trace(self, mocker: MockerFixture) -> None:
+        """With --debug in sys.argv, unhandled exceptions also emit a full stack trace."""
+        _install_app_mock(mocker, RuntimeError('oops'))
+        _install_error_console_print_mock(mocker)
+        print_exception_mock = create_autospec(console_module.error_console.print_exception)
+        mocker.patch.object(console_module.error_console, 'print_exception', new=print_exception_mock)
+        mocker.patch.object(sys, 'argv', new=['hack', '--debug'])
+
+        with pytest.raises(SystemExit):
+            console_module.main()
+
+        print_exception_mock.assert_called_once()
