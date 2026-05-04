@@ -20,7 +20,8 @@ from unittest.mock import create_autospec
 import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
-from typer import Exit, Typer
+from rich.panel import Panel
+from typer import Typer
 from typer.testing import CliRunner
 
 from rebelist.hack import console as console_module
@@ -213,17 +214,10 @@ def _install_error_console_print_mock(mocker: MockerFixture) -> Any:
 
 @pytest.mark.unit
 class TestMainErrorHandler:
-    """Verify main() surfaces failures as red lines and correct exit codes."""
-
-    def test_propagates_typer_exit(self, mocker: MockerFixture) -> None:
-        """A clean Typer Exit (e.g. --help / --version) must not be swallowed by the handler."""
-        _install_app_mock(mocker, Exit())
-
-        with pytest.raises(Exit):
-            console_module.main()
+    """Verify main() surfaces failures as error Panels on stderr and uses correct exit codes."""
 
     def test_keyboard_interrupt_exits_130(self, mocker: MockerFixture) -> None:
-        """Ctrl-C exits with code 130 and a yellow 'Aborted' line."""
+        """Ctrl-C exits with code 130 and a yellow 'Aborted' line on stderr."""
         _install_app_mock(mocker, KeyboardInterrupt())
         printer = _install_error_console_print_mock(mocker)
 
@@ -233,8 +227,8 @@ class TestMainErrorHandler:
         assert exc_info.value.code == Application.EXIT_SIGINT
         assert 'Aborted' in printer.call_args.args[0]
 
-    def test_any_exception_prints_error_and_exits_1(self, mocker: MockerFixture) -> None:
-        """Any unhandled exception prints a red error line and exits with code 1."""
+    def test_any_exception_prints_error_panel_on_stderr_and_exits_1(self, mocker: MockerFixture) -> None:
+        """Any unhandled exception prints a Rich Panel to stderr containing the message and exits with code 1."""
         _install_app_mock(mocker, RuntimeError('something went wrong'))
         printer = _install_error_console_print_mock(mocker)
 
@@ -242,10 +236,12 @@ class TestMainErrorHandler:
             console_module.main()
 
         assert exc_info.value.code == 1
-        assert 'something went wrong' in printer.call_args.args[0]
+        panel: Panel = printer.call_args.args[0]
+        assert isinstance(panel, Panel)
+        assert 'something went wrong' in str(panel.renderable)
 
     def test_exception_with_debug_flag_also_prints_stack_trace(self, mocker: MockerFixture) -> None:
-        """With --debug in sys.argv, unhandled exceptions also emit a full stack trace."""
+        """With --debug in sys.argv, unhandled exceptions emit a full stack trace via error_console."""
         _install_app_mock(mocker, RuntimeError('oops'))
         _install_error_console_print_mock(mocker)
         print_exception_mock = create_autospec(console_module.error_console.print_exception)

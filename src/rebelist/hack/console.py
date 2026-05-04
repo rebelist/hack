@@ -5,6 +5,7 @@ from typing import Annotated, Final
 from pydantic import ValidationError
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.panel import Panel
 from rich.table import Table
 from typer import Argument, Context, Exit, Option, Typer
 
@@ -38,15 +39,16 @@ class Application:
         debug = '--debug' in sys.argv
         try:
             app()
-        except Exit:
-            raise
         except KeyboardInterrupt:
             error_console.print('[yellow]Aborted.[/yellow]')
             sys.exit(Application.EXIT_SIGINT)
         except Exception as error:
-            error_console.print(f'[red]Error:[/red] {error}')
             if debug:
                 error_console.print_exception()
+            else:
+                error_console.print(
+                    Panel(str(error), title='[bold red]Error[/bold red]', border_style='red', title_align='left')
+                )
             sys.exit(Application.EXIT_ERROR)
 
 

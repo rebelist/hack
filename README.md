@@ -4,7 +4,7 @@
 </p>
 
 <p align="center">
-   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.4.2-e63946?logo=github&logoColor=white" alt="Release" /></a>
+   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.4.3-e63946?logo=github&logoColor=white" alt="Release" /></a>
    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white" alt="Python" /></a>
    <a href="https://github.com/rebelist/hack/actions/workflows/ci.yaml"><img src="https://github.com/rebelist/hack/actions/workflows/ci.yaml/badge.svg" alt="CI" /></a>
    <a href="https://codecov.io/gh/rebelist/hack" ><img src="https://codecov.io/gh/rebelist/hack/graph/badge.svg?token=lqdBu0NiZO" alt="Codecov"/></a>
