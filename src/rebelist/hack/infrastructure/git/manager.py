@@ -13,7 +13,8 @@ class GitCommandError(Exception):
         self.stderr = stderr
         self.stdout = stdout
 
-        super().__init__(f'Git command failed: {" ".join(command)} (exit={returncode}) stderr={stderr.strip()}')
+        output = (stderr or stdout).strip()
+        super().__init__(output or f'Git command failed: {" ".join(command)} (exit={returncode})')
 
 
 class GitTimeoutError(Exception):

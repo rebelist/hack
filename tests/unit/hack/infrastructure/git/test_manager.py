@@ -82,7 +82,7 @@ class TestGitManager:
         assert run.call_args.args[0] == ['git', 'commit', '-m', 'Fix bug', '-m', 'Why this matters.']
 
     def test_failed_command_raises_git_command_error_with_stderr(self, mocker: MockerFixture) -> None:
-        """A non-zero exit raises GitCommandError carrying the captured stderr."""
+        """A non-zero exit raises GitCommandError whose message is the git stderr output."""
         error = subprocess.CalledProcessError(
             returncode=1, cmd=['git', 'commit'], output='', stderr='nothing to commit'
         )
@@ -94,7 +94,22 @@ class TestGitManager:
 
         assert exc_info.value.returncode == 1
         assert 'nothing to commit' in exc_info.value.stderr
-        assert 'Git command failed' in str(exc_info.value)
+        assert 'nothing to commit' in str(exc_info.value)
+
+    def test_failed_command_with_stdout_only_surfaces_it_in_message(self, mocker: MockerFixture) -> None:
+        """When git writes its failure output to stdout (e.g. 'nothing to commit'), that text appears in the message."""
+        error = subprocess.CalledProcessError(
+            returncode=1, cmd=['git', 'commit'], output='nothing to commit, working tree clean', stderr=''
+        )
+        _install_run_mock(mocker, side_effect=error)
+        manager = GitManager()
+
+        with pytest.raises(GitCommandError) as exc_info:
+            manager.commit(Commit(subject='Fix bug'))
+
+        assert 'nothing to commit, working tree clean' in str(exc_info.value)
+        assert exc_info.value.stdout == 'nothing to commit, working tree clean'
+        assert exc_info.value.stderr == ''
 
     def test_failed_command_with_no_stderr_falls_back_to_empty_string(self, mocker: MockerFixture) -> None:
         """If the failure carries no stderr, the error message renders an empty stderr fragment."""
