@@ -1,8 +1,12 @@
 from typing import Any
 
-from jira import JIRA
+from jira import JIRA, JIRAError
 from rebelist.hack.config.settings import JiraIssueCustomFieldType, JiraSettings
 from rebelist.hack.domain.models import Ticket
+
+
+class JiraGatewayError(Exception):
+    """Raised when the Jira gateway encounters an error."""
 
 
 class JiraMapper:
@@ -48,12 +52,21 @@ class JiraGateway:
     def add_ticket(self, ticket: Ticket) -> Ticket:
         """Add a new jira ticket and return a copy with the assigned key."""
         data = self.__mapper.to_dict(ticket)
-        issue = self.__client.create_issue(fields=data)
+
+        try:
+            issue = self.__client.create_issue(fields=data)
+        except JIRAError as e:
+            raise JiraGatewayError(e.text or str(e)) from e
+
         return ticket.model_copy(update={'key': issue.key})
 
     def get_ticket(self, key: str) -> Ticket:
         """Get a jira ticket."""
-        issue = self.__client.issue(key)
+        try:
+            issue = self.__client.issue(key)
+        except JIRAError as e:
+            raise JiraGatewayError(e.text or str(e)) from e
+
         ticket = Ticket(
             key=issue.key,
             summary=issue.fields.summary,

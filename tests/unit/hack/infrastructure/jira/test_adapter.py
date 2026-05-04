@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import create_autospec
 
 import pytest
-from jira import JIRA
+from jira import JIRA, JIRAError
 
 from rebelist.hack.config.settings import (
     JiraIssueCustomFieldSettings,
@@ -21,7 +21,7 @@ from rebelist.hack.config.settings import (
     JiraSettings,
 )
 from rebelist.hack.domain.models import Ticket
-from rebelist.hack.infrastructure.jira.adapter import JiraGateway, JiraMapper
+from rebelist.hack.infrastructure.jira.adapter import JiraGateway, JiraGatewayError, JiraMapper
 
 
 def _settings_with(custom_fields: list[JiraIssueCustomFieldSettings]) -> JiraSettings:
@@ -228,3 +228,30 @@ class TestJiraGateway:
         ticket = gateway.get_ticket('WS-7')
 
         assert ticket.description == ''
+
+    def test_add_ticket_raises_gateway_error_when_create_issue_fails(self) -> None:
+        """add_ticket wraps JIRAError in JiraGatewayError, preserving the error text and the cause chain."""
+        client = create_autospec(JIRA, instance=True)
+        client.create_issue.side_effect = JIRAError(text='Project not found')
+        mapper = create_autospec(JiraMapper, instance=True)
+        mapper.to_dict.return_value = {'summary': 'S'}
+        gateway = JiraGateway(client, mapper)
+        ticket = Ticket(summary='S', kind='Bug', description='D')
+
+        with pytest.raises(JiraGatewayError, match='Project not found') as exc_info:
+            gateway.add_ticket(ticket)
+
+        mapper.to_dict.assert_called_once_with(ticket)
+        assert isinstance(exc_info.value.__cause__, JIRAError)
+
+    def test_get_ticket_raises_gateway_error_when_issue_fetch_fails(self) -> None:
+        """get_ticket wraps JIRAError in JiraGatewayError, preserving the error text and the cause chain."""
+        client = create_autospec(JIRA, instance=True)
+        client.issue.side_effect = JIRAError(text='Issue does not exist')
+        mapper = create_autospec(JiraMapper, instance=True)
+        gateway = JiraGateway(client, mapper)
+
+        with pytest.raises(JiraGatewayError, match='Issue does not exist') as exc_info:
+            gateway.get_ticket('WS-999')
+
+        assert isinstance(exc_info.value.__cause__, JIRAError)
