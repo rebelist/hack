@@ -35,6 +35,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/rebelist"]
 
+### uv ###
+
+[tool.uv]
+exclude-newer = "7 days"
+
 ### pyright ###
 
 [tool.pyright]

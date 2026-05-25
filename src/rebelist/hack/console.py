@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
-from typer import Argument, Context, Exit, Option, Typer
+from typer import Argument, Context, Exit, Option, Typer  # type: ignore
 
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings, SettingsError, YamlSettingsSource
