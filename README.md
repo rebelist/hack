@@ -4,7 +4,7 @@
 </p>
 
 <p align="center">
-   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.4.3-e63946?logo=github&logoColor=white" alt="Release" /></a>
+   <a href="https://github.com/rebelist/hack/releases"><img src="https://img.shields.io/badge/Release-0.5.0-e63946?logo=github&logoColor=white" alt="Release" /></a>
    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white" alt="Python" /></a>
    <a href="https://github.com/rebelist/hack/actions/workflows/ci.yaml"><img src="https://github.com/rebelist/hack/actions/workflows/ci.yaml/badge.svg" alt="CI" /></a>
    <a href="https://codecov.io/gh/rebelist/hack" ><img src="https://codecov.io/gh/rebelist/hack/graph/badge.svg?token=lqdBu0NiZO" alt="Codecov"/></a>
@@ -24,7 +24,7 @@ YAML-based field and template configuration.
 
 - Python `3.14.x`
 - A Jira instance and API token
-- A model supported by [`pydantic-ai`](https://ai.pydantic.dev/models/) — defaults to
+- A model supported by [`pydantic-ai`](https://ai.pydantic.dev/models/), defaults to
   `openrouter:nvidia/nemotron-3-super-120b-a12b:free`
 
 ## Installation
@@ -93,6 +93,37 @@ subject and optional body, then commits with the ticket key auto-prepended to th
 `WS-1238 Fix reset password on mobile`).
 
 ![demo_git_commit.gif](docs/images/demo_git_commit.gif)
+
+---
+
+```bash
+hack score save "Mentored two engineers through their first production deploy"
+```
+
+Lightly cleans up your note with an LLM, then appends it to your local score log (a SQLite database stored next to your
+config) with a timestamp, a running brag log of what you've achieved.
+
+```bash
+hack score list
+```
+
+Lists every score log entry chronologically (oldest first), each prefixed with its id (e.g. `[3]`) for reference.
+
+```bash
+hack score delete
+```
+
+Prompts for an entry id and removes that entry from your score log. Pass `--all` to wipe every entry at once (after a
+confirmation prompt).
+
+```bash
+hack score export "achievements.md"
+```
+
+Passes all your entries through an LLM that formats them into a polished, categorized Markdown score log (each entry
+tagged e.g. `[Engineering]`, `[Leadership]`, etc) you can revisit later to share your achievements.
+
+![demo_score_export.gif](docs/images/demo_score.gif)
 
 ---
 

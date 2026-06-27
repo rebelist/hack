@@ -14,6 +14,8 @@ the bound `__call__` signature. We sidestep this by asserting on
 
 import sys
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import create_autospec
 
@@ -27,10 +29,17 @@ from typer.testing import CliRunner
 from rebelist.hack import console as console_module
 from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
+from rebelist.hack.commands.score import (
+    DeleteAllScoresCommand,
+    DeleteScoreCommand,
+    ExportScoreLogCommand,
+    ListScoresCommand,
+    SaveScoreCommand,
+)
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import GeneralSettings, Settings, SettingsError
 from rebelist.hack.console import Application
-from rebelist.hack.domain.models import Ticket
+from rebelist.hack.domain.models import Score, Ticket
 
 
 @dataclass
@@ -41,6 +50,11 @@ class _ConsoleHarness:
     create_ticket: Any
     git_checkout_branch: Any
     git_commit: Any
+    score_save: Any
+    score_export: Any
+    score_list: Any
+    score_delete: Any
+    score_delete_all: Any
 
 
 @pytest.fixture
@@ -61,11 +75,21 @@ def harness(mocker: MockerFixture, settings: Settings) -> _ConsoleHarness:
     create_ticket = create_autospec(CreateJiraTicketCommand, instance=True)
     git_checkout_branch = create_autospec(CheckoutBranchCommand, instance=True)
     git_commit = create_autospec(CommitCommand, instance=True)
+    score_save = create_autospec(SaveScoreCommand, instance=True)
+    score_export = create_autospec(ExportScoreLogCommand, instance=True)
+    score_list = create_autospec(ListScoresCommand, instance=True)
+    score_delete = create_autospec(DeleteScoreCommand, instance=True)
+    score_delete_all = create_autospec(DeleteAllScoresCommand, instance=True)
 
     container = Container(settings)
     container.create_ticket_command = create_ticket
     container.git_checkout_branch_command = git_checkout_branch
     container.git_commit_command = git_commit
+    container.score_save_command = score_save
+    container.score_export_command = score_export
+    container.score_list_command = score_list
+    container.score_delete_command = score_delete
+    container.score_delete_all_command = score_delete_all
 
     container_class_mock = create_autospec(Container)
     container_class_mock.return_value = container
@@ -75,6 +99,11 @@ def harness(mocker: MockerFixture, settings: Settings) -> _ConsoleHarness:
         create_ticket=create_ticket,
         git_checkout_branch=git_checkout_branch,
         git_commit=git_commit,
+        score_save=score_save,
+        score_export=score_export,
+        score_list=score_list,
+        score_delete=score_delete,
+        score_delete_all=score_delete_all,
     )
 
 
@@ -170,6 +199,125 @@ class TestConsoleCommands:
         assert 'Dry run' in result.stdout
         assert 'WS-1 Fix login' in result.stdout
 
+    def test_score_save_command_dispatches_to_container(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score save "..."` invokes the save command and prints the stored entry."""
+        harness.score_save.return_value = Score(description='Stabilized the deployment pipeline.')
+
+        result = cli_runner.invoke(console_module.app, ['score', 'save', 'stabilized the deploy pipeline'])
+
+        assert result.exit_code == 0
+        harness.score_save.assert_called_once()
+        assert harness.score_save.call_args.args[0] == 'stabilized the deploy pipeline'
+        assert harness.score_save.call_args.kwargs == {'dry_run': False}
+        assert 'Stabilized the deployment pipeline.' in result.stdout
+
+    def test_score_save_dry_run(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score save --dry-run` shows the cleaned entry without persisting it."""
+        harness.score_save.return_value = Score(description='Mentored two engineers.')
+
+        result = cli_runner.invoke(console_module.app, ['score', 'save', 'mentored two engineers', '--dry-run'])
+
+        assert result.exit_code == 0
+        assert harness.score_save.call_args.kwargs == {'dry_run': True}
+        assert 'Dry run' in result.stdout
+        assert 'Mentored two engineers.' in result.stdout
+
+    def test_score_export_command_dispatches_to_container(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack score export score-log.md` invokes the export command with the destination path."""
+        harness.score_export.return_value = '# Score Log'
+
+        result = cli_runner.invoke(console_module.app, ['score', 'export', 'score-log.md'])
+
+        assert result.exit_code == 0
+        harness.score_export.assert_called_once()
+        assert Path(harness.score_export.call_args.args[0]) == Path('score-log.md')
+        assert harness.score_export.call_args.kwargs == {'dry_run': False}
+        assert 'score-log.md' in result.stdout
+
+    def test_score_export_dry_run(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score export --dry-run` renders the score log without writing a file."""
+        harness.score_export.return_value = '# Score Log'
+
+        result = cli_runner.invoke(console_module.app, ['score', 'export', 'score-log.md', '--dry-run'])
+
+        assert result.exit_code == 0
+        assert harness.score_export.call_args.kwargs == {'dry_run': True}
+        assert 'Dry run' in result.stdout
+
+    def test_score_list_command_prints_entries_with_ids(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score list` prints each entry prefixed with its id in square brackets."""
+        harness.score_list.return_value = [
+            Score(entry_id=1, created_at=datetime(2026, 3, 12, 9, 30, 0), description='First achievement.'),
+            Score(entry_id=2, created_at=datetime(2026, 5, 1, 14, 0, 0), description='Second achievement.'),
+        ]
+
+        result = cli_runner.invoke(console_module.app, ['score', 'list'])
+
+        assert result.exit_code == 0
+        harness.score_list.assert_called_once()
+        assert '[1]' in result.stdout
+        assert 'First achievement.' in result.stdout
+        assert '[2]' in result.stdout
+        assert 'Second achievement.' in result.stdout
+
+    def test_score_list_command_when_empty(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score list` with no entries prints a friendly empty-state message."""
+        harness.score_list.return_value = []
+
+        result = cli_runner.invoke(console_module.app, ['score', 'list'])
+
+        assert result.exit_code == 0
+        assert 'No achievements' in result.stdout
+
+    def test_score_delete_command_prompts_for_id_and_deletes(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack score delete` prompts for the id, deletes it, and confirms what was removed."""
+        harness.score_delete.return_value = Score(
+            entry_id=2, created_at=datetime(2026, 5, 1, 14, 0, 0), description='Removed achievement.'
+        )
+
+        result = cli_runner.invoke(console_module.app, ['score', 'delete'], input='2\n')
+
+        assert result.exit_code == 0
+        harness.score_delete.assert_called_once()
+        assert harness.score_delete.call_args.args[0] == 2
+        assert 'Deleted' in result.stdout
+        assert 'Removed achievement.' in result.stdout
+
+    def test_score_delete_command_unknown_id(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score delete --entry-id` with an unknown id reports that nothing was found."""
+        harness.score_delete.return_value = None
+
+        result = cli_runner.invoke(console_module.app, ['score', 'delete', '--entry-id', '99'])
+
+        assert result.exit_code == 0
+        assert harness.score_delete.call_args.args[0] == 99
+        assert 'No entry found' in result.stdout
+
+    def test_score_delete_all_truncates_after_confirmation(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack score delete --all` confirms first, then truncates the table without asking for an id."""
+        harness.score_delete_all.return_value = 3
+
+        result = cli_runner.invoke(console_module.app, ['score', 'delete', '--all'], input='y\n')
+
+        assert result.exit_code == 0
+        harness.score_delete_all.assert_called_once()
+        harness.score_delete.assert_not_called()
+        assert '3' in result.stdout
+
+    def test_score_delete_all_aborted_when_declined(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
+        """`hack score delete --all` answered with 'no' deletes nothing."""
+        result = cli_runner.invoke(console_module.app, ['score', 'delete', '--all'], input='n\n')
+
+        assert result.exit_code == 0
+        harness.score_delete_all.assert_not_called()
+        assert 'Aborted' in result.stdout
+
     def test_diagnose_prints_redacted_metadata(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
         """`hack diagnose` prints version + config metadata; secrets are redacted."""
         result = cli_runner.invoke(console_module.app, ['info'])
@@ -178,6 +326,8 @@ class TestConsoleCommands:
         assert '0.0.0-test' in result.stdout
         assert 'jira.example.com' in result.stdout
         assert 'redacted' in result.stdout
+        assert 'Score' in result.stdout
+        assert 'Database' in result.stdout
         assert harness.container.settings.agent.api_key.get_secret_value() not in result.stdout
         assert harness.container.settings.jira.token.get_secret_value() not in result.stdout
 

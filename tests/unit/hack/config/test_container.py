@@ -15,6 +15,13 @@ from pytest_mock import MockerFixture
 
 from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
+from rebelist.hack.commands.score import (
+    DeleteAllScoresCommand,
+    DeleteScoreCommand,
+    ExportScoreLogCommand,
+    ListScoresCommand,
+    SaveScoreCommand,
+)
 from rebelist.hack.config import container as container_module
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
@@ -22,6 +29,8 @@ from rebelist.hack.infrastructure.git import GitManager
 from rebelist.hack.infrastructure.git import agents as git_agents_module
 from rebelist.hack.infrastructure.jira import JiraGateway
 from rebelist.hack.infrastructure.jira import agents as jira_agents_module
+from rebelist.hack.infrastructure.sqlite import ScoreRepository
+from rebelist.hack.infrastructure.sqlite import agents as sqlite_agents_module
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +39,7 @@ def stub_external_constructors(mocker: MockerFixture) -> None:
     mocker.patch.object(container_module, 'JIRA', new=create_autospec(JIRA))
     mocker.patch.object(jira_agents_module, 'Agent', new=create_autospec(Agent))
     mocker.patch.object(git_agents_module, 'Agent', new=create_autospec(Agent))
+    mocker.patch.object(sqlite_agents_module, 'Agent', new=create_autospec(Agent))
 
 
 @pytest.mark.unit
@@ -76,6 +86,54 @@ class TestContainer:
 
         assert isinstance(manager, GitManager)
 
+    def test_resolves_score_repository(self, settings: Settings) -> None:
+        """score_repository resolves to a ScoreRepository backed by a file next to the config."""
+        container = Container(settings)
+
+        repository = container.score_repository
+
+        assert isinstance(repository, ScoreRepository)
+
+    def test_resolves_score_save_command(self, settings: Settings) -> None:
+        """score_save_command resolves to a SaveScoreCommand."""
+        container = Container(settings)
+
+        command = container.score_save_command
+
+        assert isinstance(command, SaveScoreCommand)
+
+    def test_resolves_score_export_command(self, settings: Settings) -> None:
+        """score_export_command resolves to an ExportScoreLogCommand."""
+        container = Container(settings)
+
+        command = container.score_export_command
+
+        assert isinstance(command, ExportScoreLogCommand)
+
+    def test_resolves_score_list_command(self, settings: Settings) -> None:
+        """score_list_command resolves to a ListScoresCommand."""
+        container = Container(settings)
+
+        command = container.score_list_command
+
+        assert isinstance(command, ListScoresCommand)
+
+    def test_resolves_score_delete_command(self, settings: Settings) -> None:
+        """score_delete_command resolves to a DeleteScoreCommand."""
+        container = Container(settings)
+
+        command = container.score_delete_command
+
+        assert isinstance(command, DeleteScoreCommand)
+
+    def test_resolves_score_delete_all_command(self, settings: Settings) -> None:
+        """score_delete_all_command resolves to a DeleteAllScoresCommand."""
+        container = Container(settings)
+
+        command = container.score_delete_all_command
+
+        assert isinstance(command, DeleteAllScoresCommand)
+
     def test_each_resolution_is_singleton_per_container(self, settings: Settings) -> None:
         """cached_property guarantees a single instance per Container per key."""
         container = Container(settings)
@@ -83,6 +141,7 @@ class TestContainer:
         assert container.jira_gateway is container.jira_gateway
         assert container.git_manager is container.git_manager
         assert container.create_ticket_command is container.create_ticket_command
+        assert container.score_repository is container.score_repository
 
     def test_settings_is_exposed_as_attribute(self, settings: Settings) -> None:
         """Commands read configuration values off container.settings, so it must be reachable."""

@@ -1,15 +1,26 @@
 from functools import cached_property
+from typing import Final
 
 from jira import JIRA
 
 from rebelist.hack.commands.git import CheckoutBranchCommand, CommitCommand
 from rebelist.hack.commands.jira import CreateJiraTicketCommand
-from rebelist.hack.config.settings import Settings
+from rebelist.hack.commands.score import (
+    DeleteAllScoresCommand,
+    DeleteScoreCommand,
+    ExportScoreLogCommand,
+    ListScoresCommand,
+    SaveScoreCommand,
+)
+from rebelist.hack.config.settings import Settings, YamlSettingsSource
 from rebelist.hack.infrastructure.git import GitBranchComposer, GitCommitComposer, GitManager
 from rebelist.hack.infrastructure.jira import JiraGateway, JiraMapper, JiraTicketComposer
+from rebelist.hack.infrastructure.sqlite import ScoreComposer, ScoreLogComposer, ScoreRepository
 
 
 class Container:
+    DATABASE_FILE_NAME: Final[str] = 'hack.db'
+
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
@@ -43,3 +54,36 @@ class Container:
     def git_manager(self) -> GitManager:
         """Git manager instance."""
         return GitManager()
+
+    @cached_property
+    def score_repository(self) -> ScoreRepository:
+        """Score repository instance, stored next to the user's config file."""
+        database_path = YamlSettingsSource.get_user_config_path().parent / Container.DATABASE_FILE_NAME
+        return ScoreRepository(database_path)
+
+    @cached_property
+    def score_save_command(self) -> SaveScoreCommand:
+        """Save-score command instance."""
+        composer = ScoreComposer(self.settings.agent.model)
+        return SaveScoreCommand(composer, self.score_repository)
+
+    @cached_property
+    def score_export_command(self) -> ExportScoreLogCommand:
+        """Export-score-log command instance."""
+        composer = ScoreLogComposer(self.settings.agent.model)
+        return ExportScoreLogCommand(self.score_repository, composer)
+
+    @cached_property
+    def score_list_command(self) -> ListScoresCommand:
+        """List-scores command instance."""
+        return ListScoresCommand(self.score_repository)
+
+    @cached_property
+    def score_delete_command(self) -> DeleteScoreCommand:
+        """Delete-score command instance."""
+        return DeleteScoreCommand(self.score_repository)
+
+    @cached_property
+    def score_delete_all_command(self) -> DeleteAllScoresCommand:
+        """Delete-all-scores command instance."""
+        return DeleteAllScoresCommand(self.score_repository)

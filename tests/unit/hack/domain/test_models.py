@@ -1,7 +1,9 @@
+from datetime import datetime
+
 import pytest
 from pydantic import ValidationError
 
-from rebelist.hack.domain.models import Branch, Commit, Ticket
+from rebelist.hack.domain.models import Branch, Commit, Score, Ticket
 
 
 @pytest.mark.unit
@@ -132,3 +134,53 @@ class TestCommit:
 
         assert commit.subject == 'Fix login bug'
         assert prefixed.subject == 'WS-120 Fix login bug'
+
+
+@pytest.mark.unit
+class TestScore:
+    """Verify Score validation, stripping, and the repository-assigned timestamp pattern."""
+
+    def test_constructs_with_description_only(self) -> None:
+        """A Score can be built from a description alone; entry_id and created_at default to None until persisted."""
+        score = Score(description='Stabilized the deployment pipeline.')
+
+        assert score.entry_id is None
+        assert score.created_at is None
+        assert score.description == 'Stabilized the deployment pipeline.'
+
+    def test_model_copy_assigns_entry_id(self) -> None:
+        """The repository stamps the row identifier via model_copy without mutating the original."""
+        score = Score(description='Shipped the feature.')
+
+        stamped = score.model_copy(update={'entry_id': 7})
+
+        assert score.entry_id is None
+        assert stamped.entry_id == 7
+
+    def test_strips_whitespace_on_description(self) -> None:
+        """str_strip_whitespace is enabled, so surrounding whitespace is removed."""
+        score = Score(description='   Mentored two engineers.   ')
+
+        assert score.description == 'Mentored two engineers.'
+
+    def test_rejects_empty_description(self) -> None:
+        """An empty (or whitespace-only) description is not a valid achievement entry."""
+        with pytest.raises(ValidationError):
+            Score(description='   ')
+
+    def test_is_frozen(self) -> None:
+        """Score is immutable; the repository returns a fresh copy carrying the assigned timestamp."""
+        score = Score(description='Shipped the feature.')
+
+        with pytest.raises(ValidationError):
+            score.description = 'Changed.'
+
+    def test_model_copy_assigns_created_at(self) -> None:
+        """The persistence flow uses model_copy to stamp created_at without mutating the original."""
+        score = Score(description='Shipped the feature.')
+        timestamp = datetime(2026, 3, 12, 9, 30, 0)
+
+        stamped = score.model_copy(update={'created_at': timestamp})
+
+        assert score.created_at is None
+        assert stamped.created_at == timestamp

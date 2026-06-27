@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
@@ -42,3 +43,20 @@ class Commit(BaseModel):
             description='Rationale for change. Wrap at 72 chars per line. Empty if trivial.',
         ),
     ] = ''
+
+
+class Score(BaseModel):
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    entry_id: Annotated[
+        int | None,
+        Field(description='Row identifier, assigned by the repository when the entry is read or persisted.'),
+    ] = None
+    created_at: Annotated[
+        datetime | None,
+        Field(description='Creation timestamp, assigned by the repository when the entry is persisted.'),
+    ] = None
+    description: Annotated[
+        str,
+        StringConstraints(min_length=1),
+        Field(description='A single score log achievement entry, lightly cleaned up by the LLM.'),
+    ]

@@ -1,13 +1,15 @@
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, Final
 
 from pydantic import ValidationError
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
-from typer import Argument, Context, Exit, Option, Typer  # type: ignore
+from typer import Argument, Context, Exit, Option, Typer, confirm, prompt  # type: ignore
 
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings, SettingsError, YamlSettingsSource
@@ -17,9 +19,11 @@ error_console = Console(stderr=True)
 app = Typer()
 jira = Typer()
 git = Typer()
+score = Typer()
 
 app.add_typer(jira, name='jira', help='Jira subcommand to interact with Jira workflows.')
 app.add_typer(git, name='git', help='Git subcommand to interact with Git workflows.')
+app.add_typer(score, name='score', help='Score subcommand to keep a score log of your achievements.')
 
 
 @dataclass
@@ -113,6 +117,13 @@ def diagnose_command(context: Context) -> None:
     table.add_row('[bold green]Git[/bold green]', '')
     table.add_section()
     table.add_row('Branch Categories', ', '.join(settings.git.branch_categories))
+    table.add_section()
+
+    table.add_section()
+    table.add_row('[bold green]Score[/bold green]', '')
+    table.add_section()
+    database_path = YamlSettingsSource.get_user_config_path().parent / state.container.DATABASE_FILE_NAME
+    table.add_row('Database', str(database_path))
 
     console.print(table)
 
@@ -178,6 +189,94 @@ def git_commit_command(
     if dry_run:
         console.print('[tan]Dry run — no commit created.[/tan]')
     console.print(output)
+
+
+@score.command(name='save')
+def score_save_command(
+    context: Context,
+    description: Annotated[str, Argument(help='What you accomplished (use quotes for multiple words).')],
+    dry_run: Annotated[bool, Option('--dry-run', help='Show the cleaned entry without saving it.')] = False,
+) -> None:
+    """Save an achievement to your score log. The entry is lightly cleaned up by an LLM before storing."""
+    state: ApplicationState = context.obj
+
+    with console.status('[grey58]Polishing your humble brag...[/grey58]', spinner='dots'):
+        saved = state.container.score_save_command(description, dry_run=dry_run)
+
+    if dry_run:
+        console.print('[tan]Dry run — nothing saved.[/tan]')
+        console.print(saved.description)
+        return
+
+    console.print(f'[green]Achievement logged![/green] {saved.description}')
+
+
+@score.command(name='export')
+def score_export_command(
+    context: Context,
+    file: Annotated[Path, Argument(help='Destination markdown file, e.g. score-log.md.')],
+    dry_run: Annotated[bool, Option('--dry-run', help='Render the score log without writing the file.')] = False,
+) -> None:
+    """Export every achievement as a categorized, LLM-formatted score log markdown file."""
+    state: ApplicationState = context.obj
+
+    with console.status('[grey58]Spinning a year of wins into a brag...[/grey58]', spinner='dots'):
+        markdown = state.container.score_export_command(file, dry_run=dry_run)
+
+    if dry_run:
+        console.print('[tan]Dry run — file not written.[/tan]')
+        console.print(Markdown(markdown))
+        return
+
+    console.print(f'[green]Score log exported![/green] {file}')
+
+
+@score.command(name='list')
+def score_list_command(context: Context) -> None:
+    """List your score log entries chronologically (oldest first), each prefixed with its id."""
+    state: ApplicationState = context.obj
+
+    with console.status('[grey58]Tallying up your wins...[/grey58]', spinner='dots'):
+        scores = state.container.score_list_command()
+
+    if not scores:
+        console.print('[tan]No achievements recorded yet. Use `hack score save "..."` to add one.[/tan]')
+        return
+
+    for score_entry in scores:
+        timestamp = score_entry.created_at.strftime('%Y-%m-%d %H:%M') if score_entry.created_at else ''
+        label = escape(f'[{score_entry.entry_id}]')
+        console.print(f'[cyan]{label}[/cyan] [dim]{timestamp}[/dim]  {escape(score_entry.description)}')
+
+
+@score.command(name='delete')
+def score_delete_command(
+    context: Context,
+    entry_id: Annotated[int | None, Option('--entry-id', help='Id of the entry to delete.')] = None,
+    all_entries: Annotated[bool, Option('--all', help='Delete every entry from the score log.')] = False,
+) -> None:
+    """Delete a score log entry by its id, or wipe the whole log with --all."""
+    state: ApplicationState = context.obj
+
+    if all_entries:
+        if not confirm('This will permanently delete ALL score log entries. Are you sure?'):
+            console.print('[tan]Aborted — nothing was deleted.[/tan]')
+            return
+        with console.status('[grey58]Wiping the slate clean...[/grey58]', spinner='dots'):
+            removed = state.container.score_delete_all_command()
+        console.print(f'[green]Deleted all {removed} score log entries.[/green]')
+        return
+
+    target_id: int = entry_id if entry_id is not None else prompt('Which entry id do you want to delete?', type=int)
+
+    with console.status('[grey58]Rewriting history...[/grey58]', spinner='dots'):
+        deleted = state.container.score_delete_command(target_id)
+
+    if deleted is None:
+        console.print(f'[yellow]No entry found with id {target_id}.[/yellow]')
+        return
+
+    console.print(f'[green]Deleted entry {target_id}.[/green] {escape(deleted.description)}')
 
 
 main = Application()
