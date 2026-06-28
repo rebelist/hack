@@ -54,7 +54,7 @@ class ScoreLogComposer:
 
         ## Requirements
         - Open with a short `# Score Log` title and a one-sentence intro.
-        - List every entry in reverse-chronological order (newest first).
+        - List every entry in chronological order (oldest first).
         - Render each entry as a single Markdown list item in EXACTLY this format:
           `- [<timestamp>] [<category>] <description>`
           where `<timestamp>` is the entry's provided timestamp, `<category>` is a single best-fit
