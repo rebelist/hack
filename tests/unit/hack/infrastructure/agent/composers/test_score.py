@@ -93,6 +93,18 @@ class TestScoreLogComposer:
         assert '2026-03-12' in run_prompt
         assert result == '# Score Log\n- entry'
 
+    def test_compose_renders_unknown_timestamp_for_entries_without_created_at(self, mocker: MockerFixture) -> None:
+        """Entries with an unset created_at are rendered with an `unknown` timestamp in the run prompt."""
+        agent_class = _install_agent_mock(mocker)
+        _stub_run_output(agent_class, '# Score Log')
+        composer = ScoreLogComposer('test:dummy')
+        scores = [Score(description='Shipped the onboarding flow.')]
+
+        composer.compose(scores)
+
+        run_prompt = agent_class.return_value.run_sync.call_args.args[0]
+        assert run_prompt == '- [unknown] Shipped the onboarding flow.'
+
     def test_system_prompt_requests_chronological_categorized_score_log(self, mocker: MockerFixture) -> None:
         """The system prompt asks for a newest-first, category-tagged score log."""
         agent_class = _install_agent_mock(mocker)
