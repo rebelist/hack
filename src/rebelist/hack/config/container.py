@@ -13,9 +13,16 @@ from rebelist.hack.commands.score import (
     SaveScoreCommand,
 )
 from rebelist.hack.config.settings import Settings, YamlSettingsSource
-from rebelist.hack.infrastructure.git import GitBranchComposer, GitCommitComposer, GitManager
-from rebelist.hack.infrastructure.jira import JiraGateway, JiraMapper, JiraTicketComposer
-from rebelist.hack.infrastructure.sqlite import ScoreComposer, ScoreLogComposer, ScoreRepository
+from rebelist.hack.infrastructure.agent import (
+    GitBranchComposer,
+    GitCommitComposer,
+    JiraTicketComposer,
+    ScoreComposer,
+    ScoreLogComposer,
+)
+from rebelist.hack.infrastructure.git import GitManager
+from rebelist.hack.infrastructure.jira import JiraGateway, JiraMapper
+from rebelist.hack.infrastructure.sqlite import ScoreRepository
 
 
 class Container:

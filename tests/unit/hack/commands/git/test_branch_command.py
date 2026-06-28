@@ -4,7 +4,8 @@ import pytest
 
 from rebelist.hack.commands.git.branch_command import CheckoutBranchCommand
 from rebelist.hack.domain.models import Branch, Ticket
-from rebelist.hack.infrastructure.git import GitBranchComposer, GitManager
+from rebelist.hack.infrastructure.agent import GitBranchComposer
+from rebelist.hack.infrastructure.git import GitManager
 from rebelist.hack.infrastructure.jira import JiraGateway
 
 

@@ -1,6 +1,6 @@
 import sqlite3
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
@@ -94,5 +94,11 @@ class ScoreRepository:
 
     @staticmethod
     def __parse_timestamp(value: str) -> datetime:
-        """Parse SQLite's CURRENT_TIMESTAMP text (``YYYY-MM-DD HH:MM:SS``) into a datetime."""
-        return datetime.fromisoformat(value)
+        """Parse a stored timestamp into a timezone-aware datetime.
+
+        SQLite's ``CURRENT_TIMESTAMP`` default writes naive UTC text (``YYYY-MM-DD HH:MM:SS``); such
+        values are tagged as UTC so callers can localize them for display. Values that already carry
+        an offset are returned unchanged.
+        """
+        parsed = datetime.fromisoformat(value)
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)

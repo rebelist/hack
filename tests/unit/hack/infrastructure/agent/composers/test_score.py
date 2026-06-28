@@ -18,14 +18,14 @@ from pydantic_ai.run import AgentRunResult
 from pytest_mock import MockerFixture
 
 from rebelist.hack.domain.models import Score
-from rebelist.hack.infrastructure.sqlite import agents as sqlite_agents_module
-from rebelist.hack.infrastructure.sqlite.agents import ScoreComposer, ScoreLogComposer
+from rebelist.hack.infrastructure.agent.composers import score as score_composers_module
+from rebelist.hack.infrastructure.agent.composers.score import ScoreComposer, ScoreLogComposer
 
 
 def _install_agent_mock(mocker: MockerFixture) -> Any:
-    """Replace `Agent` in the sqlite agents module with an autospec'd class mock."""
+    """Replace `Agent` in the agent composers module with an autospec'd class mock."""
     agent_class = create_autospec(Agent)
-    mocker.patch.object(sqlite_agents_module, 'Agent', new=agent_class)
+    mocker.patch.object(score_composers_module, 'Agent', new=agent_class)
     return agent_class
 
 

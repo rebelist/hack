@@ -16,14 +16,14 @@ from pytest_mock import MockerFixture
 
 from rebelist.hack.config.settings import GitSettings
 from rebelist.hack.domain.models import Branch, Commit, Ticket
-from rebelist.hack.infrastructure.git import agents as git_agents_module
-from rebelist.hack.infrastructure.git.agents import GitBranchComposer, GitCommitComposer
+from rebelist.hack.infrastructure.agent.composers import git as git_composers_module
+from rebelist.hack.infrastructure.agent.composers.git import GitBranchComposer, GitCommitComposer
 
 
 def _install_agent_mock(mocker: MockerFixture) -> Any:
-    """Replace `Agent` in the git agents module with an autospec'd class mock."""
+    """Replace `Agent` in the git composers module with an autospec'd class mock."""
     agent_class = create_autospec(Agent)
-    mocker.patch.object(git_agents_module, 'Agent', new=agent_class)
+    mocker.patch.object(git_composers_module, 'Agent', new=agent_class)
     return agent_class
 
 

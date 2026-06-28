@@ -63,18 +63,21 @@ def bootstrap(
     debug: bool = Option(False, '--debug', help='Show stack traces on error.'),
 ) -> None:
     """Bootstrap the console and handle global options."""
+    # Resolve version / no-subcommand from lightweight package metadata *before* loading the full
+    # Settings graph, so `hack` and `hack --version` work on an unconfigured (or freshly installed)
+    # machine instead of failing config validation.
+    if version or context.invoked_subcommand is None:
+        name, app_version = Settings.get_metadata()
+        console.print(f'{name.capitalize()} - v{app_version}')
+        console.print(f'Run [green]{name}[/green] [yellow]--help[/yellow] for more information.')
+        raise Exit()
+
     try:
         container = Container(Settings())
     except ValidationError as error:
         raise SettingsError.from_validation_error(error) from error
 
     context.obj = ApplicationState(container=container, debug=debug)
-
-    if version or context.invoked_subcommand is None:
-        metadata = Settings.get_metadata()
-        console.print(f'{metadata[0].capitalize()} - v{metadata[1]}')
-        console.print(f'Run [green]{metadata[0]}[/green] [yellow]--help[/yellow] for more information.')
-        raise Exit()
 
 
 @app.command(name='info')
@@ -244,7 +247,7 @@ def score_list_command(context: Context) -> None:
         return
 
     for score_entry in scores:
-        timestamp = score_entry.created_at.strftime('%Y-%m-%d %H:%M') if score_entry.created_at else ''
+        timestamp = score_entry.created_at.astimezone().strftime('%Y-%m-%d %H:%M') if score_entry.created_at else ''
         label = escape(f'[{score_entry.entry_id}]')
         console.print(f'[cyan]{label}[/cyan] [dim]{timestamp}[/dim]  {escape(score_entry.description)}')
 

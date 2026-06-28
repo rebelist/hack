@@ -209,7 +209,12 @@ class Settings(BaseSettings):
     git: GitSettings
 
     def __init__(self, **values: Any) -> None:
-        """Construct via Pydantic settings sources (env, YAML). All fields are populated by sources."""
+        """Override Pydantic's generated ``__init__`` so ``Settings()`` type-checks with no arguments.
+
+        Every field is populated by the configured settings sources (YAML, env) rather than passed in,
+        but the model-generated signature would mark ``general``/``agent``/``jira``/``git`` as required
+        positional arguments under Pyright strict mode. Accepting ``**values`` keeps call sites clean.
+        """
         super().__init__(**values)
 
     def model_post_init(self, __context: Any) -> None:

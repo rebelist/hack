@@ -22,14 +22,14 @@ from rebelist.hack.config.settings import (
     JiraSettings,
 )
 from rebelist.hack.domain.models import Ticket
-from rebelist.hack.infrastructure.jira import agents as jira_agents_module
-from rebelist.hack.infrastructure.jira.agents import JiraTicketComposer
+from rebelist.hack.infrastructure.agent.composers import jira as jira_composers_module
+from rebelist.hack.infrastructure.agent.composers.jira import JiraTicketComposer
 
 
 def _install_agent_mock(mocker: MockerFixture) -> Any:
-    """Replace `Agent` in the jira agents module with an autospec'd class mock."""
+    """Replace `Agent` in the jira composers module with an autospec'd class mock."""
     agent_class = create_autospec(Agent)
-    mocker.patch.object(jira_agents_module, 'Agent', new=agent_class)
+    mocker.patch.object(jira_composers_module, 'Agent', new=agent_class)
     return agent_class
 
 

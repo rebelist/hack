@@ -4,7 +4,8 @@ import pytest
 
 from rebelist.hack.commands.git.commit_command import CommitCommand
 from rebelist.hack.domain.models import Commit
-from rebelist.hack.infrastructure.git import GitCommitComposer, GitManager
+from rebelist.hack.infrastructure.agent import GitCommitComposer
+from rebelist.hack.infrastructure.git import GitManager
 
 
 @pytest.mark.unit

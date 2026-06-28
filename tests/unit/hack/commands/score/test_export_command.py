@@ -6,7 +6,8 @@ import pytest
 
 from rebelist.hack.commands.score.export_command import ExportScoreLogCommand, NoScoresError
 from rebelist.hack.domain.models import Score
-from rebelist.hack.infrastructure.sqlite import ScoreLogComposer, ScoreRepository
+from rebelist.hack.infrastructure.agent import ScoreLogComposer
+from rebelist.hack.infrastructure.sqlite import ScoreRepository
 
 
 def _scores() -> list[Score]:

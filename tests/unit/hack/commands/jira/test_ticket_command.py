@@ -4,7 +4,8 @@ import pytest
 
 from rebelist.hack.commands.jira.ticket_command import CreateJiraTicketCommand
 from rebelist.hack.domain.models import Ticket
-from rebelist.hack.infrastructure.jira import JiraGateway, JiraTicketComposer
+from rebelist.hack.infrastructure.agent import JiraTicketComposer
+from rebelist.hack.infrastructure.jira import JiraGateway
 
 
 @pytest.mark.unit

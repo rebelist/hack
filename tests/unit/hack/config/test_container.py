@@ -25,21 +25,21 @@ from rebelist.hack.commands.score import (
 from rebelist.hack.config import container as container_module
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings
+from rebelist.hack.infrastructure.agent.composers import git as git_composers_module
+from rebelist.hack.infrastructure.agent.composers import jira as jira_composers_module
+from rebelist.hack.infrastructure.agent.composers import score as score_composers_module
 from rebelist.hack.infrastructure.git import GitManager
-from rebelist.hack.infrastructure.git import agents as git_agents_module
 from rebelist.hack.infrastructure.jira import JiraGateway
-from rebelist.hack.infrastructure.jira import agents as jira_agents_module
 from rebelist.hack.infrastructure.sqlite import ScoreRepository
-from rebelist.hack.infrastructure.sqlite import agents as sqlite_agents_module
 
 
 @pytest.fixture(autouse=True)
 def stub_external_constructors(mocker: MockerFixture) -> None:
     """Replace heavy / network-touching constructors with autospec'd stand-ins."""
     mocker.patch.object(container_module, 'JIRA', new=create_autospec(JIRA))
-    mocker.patch.object(jira_agents_module, 'Agent', new=create_autospec(Agent))
-    mocker.patch.object(git_agents_module, 'Agent', new=create_autospec(Agent))
-    mocker.patch.object(sqlite_agents_module, 'Agent', new=create_autospec(Agent))
+    mocker.patch.object(jira_composers_module, 'Agent', new=create_autospec(Agent))
+    mocker.patch.object(git_composers_module, 'Agent', new=create_autospec(Agent))
+    mocker.patch.object(score_composers_module, 'Agent', new=create_autospec(Agent))
 
 
 @pytest.mark.unit

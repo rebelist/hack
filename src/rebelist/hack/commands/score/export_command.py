@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from rebelist.hack.infrastructure.sqlite import ScoreLogComposer, ScoreRepository
+from rebelist.hack.infrastructure.agent import ScoreLogComposer
+from rebelist.hack.infrastructure.sqlite import ScoreRepository
 
 
 class NoScoresError(Exception):

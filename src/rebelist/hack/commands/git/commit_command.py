@@ -1,4 +1,4 @@
-from rebelist.hack.infrastructure.git.agents import GitCommitComposer
+from rebelist.hack.infrastructure.agent import GitCommitComposer
 from rebelist.hack.infrastructure.git.manager import GitManager
 
 

@@ -334,7 +334,11 @@ class TestConsoleCommands:
     def test_bootstrap_wraps_validation_error_as_settings_error(
         self, cli_runner: CliRunner, mocker: MockerFixture, settings: Settings
     ) -> None:
-        """A ValidationError raised by Container construction is re-raised as a SettingsError."""
+        """A ValidationError raised by Container construction is re-raised as a SettingsError.
+
+        Container is only built for real subcommands (`--version` short-circuits on lightweight
+        metadata before the Settings graph loads), so the failure is driven through `info`.
+        """
         del settings
         with pytest.raises(ValidationError) as exc_info:
             GeneralSettings.model_validate({})
@@ -343,7 +347,7 @@ class TestConsoleCommands:
         container_class_mock.side_effect = exc_info.value
         mocker.patch.object(console_module, 'Container', new=container_class_mock)
 
-        result = cli_runner.invoke(console_module.app, ['--version'])
+        result = cli_runner.invoke(console_module.app, ['info'])
 
         assert isinstance(result.exception, SettingsError)
 

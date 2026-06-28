@@ -5,7 +5,8 @@ import pytest
 
 from rebelist.hack.commands.score.save_command import SaveScoreCommand
 from rebelist.hack.domain.models import Score
-from rebelist.hack.infrastructure.sqlite import ScoreComposer, ScoreRepository
+from rebelist.hack.infrastructure.agent import ScoreComposer
+from rebelist.hack.infrastructure.sqlite import ScoreRepository
 
 
 @pytest.mark.unit
