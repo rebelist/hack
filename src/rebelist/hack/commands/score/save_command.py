@@ -9,9 +9,9 @@ class SaveScoreCommand:
         self.__score_repository = score_repository
 
     def __call__(self, description: str, dry_run: bool = False) -> Score:
-        """Clean up a raw achievement note and persist it as a score log entry."""
-        cleaned = self.__score_composer.compose(description)
-        score = Score(description=cleaned)
+        """Clean up and categorize a raw achievement note and persist it as a score log entry."""
+        draft = self.__score_composer.compose(description)
+        score = Score(description=draft.description, category=draft.category)
         if dry_run:
             return score
         return self.__score_repository.save(score)

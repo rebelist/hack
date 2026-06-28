@@ -3,7 +3,6 @@ from rebelist.hack.infrastructure.agent.composers import (
     GitCommitComposer,
     JiraTicketComposer,
     ScoreComposer,
-    ScoreLogComposer,
 )
 
 __all__ = [
@@ -11,5 +10,4 @@ __all__ = [
     'GitCommitComposer',
     'JiraTicketComposer',
     'ScoreComposer',
-    'ScoreLogComposer',
 ]

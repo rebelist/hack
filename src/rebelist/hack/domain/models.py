@@ -60,3 +60,23 @@ class Score(BaseModel):
         StringConstraints(min_length=1),
         Field(description='A single score log achievement entry, lightly cleaned up by the LLM.'),
     ]
+    category: Annotated[
+        str | None,
+        Field(description='Best-fit category assigned by the LLM at save time; None for legacy entries.'),
+    ] = None
+
+
+class ScoreDraft(BaseModel):
+    """LLM cleanup output: a tidied achievement entry paired with its best-fit category."""
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+    description: Annotated[
+        str,
+        StringConstraints(min_length=1),
+        Field(description='The lightly cleaned-up achievement entry text.'),
+    ]
+    category: Annotated[
+        str,
+        StringConstraints(min_length=1),
+        Field(description="A single best-fit category (e.g. 'Engineering', 'Leadership', 'Mentorship')."),
+    ]

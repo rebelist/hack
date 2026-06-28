@@ -13,12 +13,12 @@ from rebelist.hack.commands.score import (
     SaveScoreCommand,
 )
 from rebelist.hack.config.settings import Settings, YamlSettingsSource
+from rebelist.hack.domain.score_log import ScoreLogFormatter
 from rebelist.hack.infrastructure.agent import (
     GitBranchComposer,
     GitCommitComposer,
     JiraTicketComposer,
     ScoreComposer,
-    ScoreLogComposer,
 )
 from rebelist.hack.infrastructure.git import GitManager
 from rebelist.hack.infrastructure.jira import JiraGateway, JiraMapper
@@ -77,8 +77,7 @@ class Container:
     @cached_property
     def score_export_command(self) -> ExportScoreLogCommand:
         """Export-score-log command instance."""
-        composer = ScoreLogComposer(self.settings.agent.model)
-        return ExportScoreLogCommand(self.score_repository, composer)
+        return ExportScoreLogCommand(self.score_repository, ScoreLogFormatter())
 
     @cached_property
     def score_list_command(self) -> ListScoresCommand:

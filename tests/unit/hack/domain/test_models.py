@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from rebelist.hack.domain.models import Branch, Commit, Score, Ticket
+from rebelist.hack.domain.models import Branch, Commit, Score, ScoreDraft, Ticket
 
 
 @pytest.mark.unit
@@ -141,12 +141,19 @@ class TestScore:
     """Verify Score validation, stripping, and the repository-assigned timestamp pattern."""
 
     def test_constructs_with_description_only(self) -> None:
-        """A Score can be built from a description alone; entry_id and created_at default to None until persisted."""
+        """A Score can be built from a description alone; entry_id, created_at and category default to None."""
         score = Score(description='Stabilized the deployment pipeline.')
 
         assert score.entry_id is None
         assert score.created_at is None
+        assert score.category is None
         assert score.description == 'Stabilized the deployment pipeline.'
+
+    def test_carries_category_when_provided(self) -> None:
+        """A Score retains the best-fit category assigned to it at save time."""
+        score = Score(description='Stabilized the deployment pipeline.', category='Engineering')
+
+        assert score.category == 'Engineering'
 
     def test_model_copy_assigns_entry_id(self) -> None:
         """The repository stamps the row identifier via model_copy without mutating the original."""
@@ -184,3 +191,39 @@ class TestScore:
 
         assert score.created_at is None
         assert stamped.created_at == timestamp
+
+
+@pytest.mark.unit
+class TestScoreDraft:
+    """Verify the LLM cleanup output carries a cleaned description and a best-fit category."""
+
+    def test_constructs_with_description_and_category(self) -> None:
+        """A ScoreDraft pairs the cleaned achievement text with the category the LLM chose for it."""
+        draft = ScoreDraft(description='Stabilized the deployment pipeline.', category='Engineering')
+
+        assert draft.description == 'Stabilized the deployment pipeline.'
+        assert draft.category == 'Engineering'
+
+    def test_strips_whitespace(self) -> None:
+        """str_strip_whitespace is enabled, so surrounding whitespace is removed from both fields."""
+        draft = ScoreDraft(description='   Mentored two engineers.   ', category='  Mentorship  ')
+
+        assert draft.description == 'Mentored two engineers.'
+        assert draft.category == 'Mentorship'
+
+    def test_rejects_empty_description(self) -> None:
+        """An empty (or whitespace-only) description is not a valid draft."""
+        with pytest.raises(ValidationError):
+            ScoreDraft(description='   ', category='Engineering')
+
+    def test_rejects_empty_category(self) -> None:
+        """An empty (or whitespace-only) category is not a valid draft."""
+        with pytest.raises(ValidationError):
+            ScoreDraft(description='Shipped the feature.', category='   ')
+
+    def test_is_frozen(self) -> None:
+        """ScoreDraft is immutable like the other domain models."""
+        draft = ScoreDraft(description='Shipped the feature.', category='Engineering')
+
+        with pytest.raises(ValidationError):
+            draft.category = 'Changed.'

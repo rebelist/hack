@@ -226,7 +226,7 @@ def score_export_command(
     file: Annotated[Path, Argument(help='Destination markdown file, e.g. score-log.md.')],
     dry_run: Annotated[bool, Option('--dry-run', help='Render the score log without writing the file.')] = False,
 ) -> None:
-    """Export every achievement as a categorized, LLM-formatted score log Markdown file."""
+    """Export every achievement as a categorized, chronological score log Markdown file."""
     state: ApplicationState = context.obj
 
     with console.status('[grey58]Spinning a year of wins into a brag...[/grey58]', spinner='dots'):

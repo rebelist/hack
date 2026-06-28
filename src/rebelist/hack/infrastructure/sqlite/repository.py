@@ -15,11 +15,14 @@ class ScoreRepository:
     CREATE_TABLE: Final[str] = (
         'CREATE TABLE IF NOT EXISTS scores ('
         'created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, '
-        'description TEXT NOT NULL)'
+        'description TEXT NOT NULL, '
+        'category TEXT)'
     )
-    INSERT_SCORE: Final[str] = 'INSERT INTO scores (description) VALUES (?)'
-    SELECT_BY_ID: Final[str] = 'SELECT rowid, created_at, description FROM scores WHERE rowid = ?'
-    SELECT_ALL: Final[str] = 'SELECT rowid, created_at, description FROM scores ORDER BY rowid ASC'
+    ADD_CATEGORY_COLUMN: Final[str] = 'ALTER TABLE scores ADD COLUMN category TEXT'
+    TABLE_COLUMNS: Final[str] = 'PRAGMA table_info(scores)'
+    INSERT_SCORE: Final[str] = 'INSERT INTO scores (description, category) VALUES (?, ?)'
+    SELECT_BY_ID: Final[str] = 'SELECT rowid, created_at, description, category FROM scores WHERE rowid = ?'
+    SELECT_ALL: Final[str] = 'SELECT rowid, created_at, description, category FROM scores ORDER BY rowid ASC'
     COUNT_ALL: Final[str] = 'SELECT COUNT(*) FROM scores'
     DELETE_BY_ID: Final[str] = 'DELETE FROM scores WHERE rowid = ?'
     DELETE_ALL: Final[str] = 'DELETE FROM scores'
@@ -32,7 +35,7 @@ class ScoreRepository:
         """Persist a score entry and return a copy stamped with the database-assigned id and creation time."""
         try:
             with closing(self.__connect()) as connection, connection:
-                cursor = connection.execute(self.INSERT_SCORE, (score.description,))
+                cursor = connection.execute(self.INSERT_SCORE, (score.description, score.category))
                 row = connection.execute(self.SELECT_BY_ID, (cursor.lastrowid,)).fetchone()
         except sqlite3.Error as error:
             raise ScoreRepositoryError(str(error)) from error
@@ -74,11 +77,14 @@ class ScoreRepository:
         return count
 
     def __initialize(self) -> None:
-        """Create the parent directory and the scores table if they do not already exist."""
+        """Create the parent directory and the scores table, migrating legacy schemas as needed."""
         self.__database_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with closing(self.__connect()) as connection, connection:
                 connection.execute(self.CREATE_TABLE)
+                columns = {row[1] for row in connection.execute(self.TABLE_COLUMNS).fetchall()}
+                if 'category' not in columns:
+                    connection.execute(self.ADD_CATEGORY_COLUMN)
         except sqlite3.Error as error:
             raise ScoreRepositoryError(str(error)) from error
 
@@ -87,10 +93,15 @@ class ScoreRepository:
         return sqlite3.connect(self.__database_path)
 
     @classmethod
-    def __to_score(cls, row: tuple[int, str, str]) -> Score:
-        """Build a Score from a ``(rowid, created_at, description)`` database row."""
-        entry_id, created_at, description = row
-        return Score(entry_id=entry_id, created_at=cls.__parse_timestamp(created_at), description=description)
+    def __to_score(cls, row: tuple[int, str, str, str | None]) -> Score:
+        """Build a Score from a ``(rowid, created_at, description, category)`` database row."""
+        entry_id, created_at, description, category = row
+        return Score(
+            entry_id=entry_id,
+            created_at=cls.__parse_timestamp(created_at),
+            description=description,
+            category=category,
+        )
 
     @staticmethod
     def __parse_timestamp(value: str) -> datetime:

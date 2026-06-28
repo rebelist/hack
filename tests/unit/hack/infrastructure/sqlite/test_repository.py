@@ -9,6 +9,7 @@ stand-in that raises, keeping the single mock-construction mechanism.
 """
 
 import sqlite3
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,7 @@ def _install_connect_mock(mocker: MockerFixture, error: Exception) -> Any:
 
 @pytest.mark.unit
 class TestScoreRepository:
-    """Verify the repository creates its schema, round-trips entries, and orders them newest-first."""
+    """Verify the repository creates its schema, round-trips entries, and orders them oldest-first."""
 
     def test_initialization_creates_database_file_and_parent_dirs(self, tmp_path: Path) -> None:
         """Constructing the repository creates the database file, including any missing parent directories."""
@@ -50,6 +51,16 @@ class TestScoreRepository:
         assert stored.entry_id == 1
         assert stored.description == 'Stabilized the deployment pipeline.'
         assert isinstance(stored.created_at, datetime)
+
+    def test_save_persists_and_returns_category(self, tmp_path: Path) -> None:
+        """save() stores the entry's category and round-trips it through find_all()."""
+        repository = ScoreRepository(tmp_path / 'hack.db')
+
+        stored = repository.save(Score(description='Stabilized the deployment pipeline.', category='Engineering'))
+
+        assert stored.category == 'Engineering'
+        (reloaded,) = repository.find_all()
+        assert reloaded.category == 'Engineering'
 
     def test_find_all_on_empty_database_returns_empty_list(self, tmp_path: Path) -> None:
         """A freshly initialized database has no entries to return."""
@@ -105,6 +116,26 @@ class TestScoreRepository:
         reopened = ScoreRepository(database_path)
 
         assert [score.description for score in reopened.find_all()] == ['Durable achievement.']
+
+    def test_migrates_legacy_table_without_category_column(self, tmp_path: Path) -> None:
+        """Opening a pre-category database adds the column, leaving existing rows with a None category."""
+        database_path = tmp_path / 'hack.db'
+        with closing(sqlite3.connect(database_path)) as connection, connection:
+            connection.execute(
+                'CREATE TABLE scores ('
+                'created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, '
+                'description TEXT NOT NULL)'
+            )
+            connection.execute("INSERT INTO scores (description) VALUES ('Legacy achievement.')")
+
+        repository = ScoreRepository(database_path)
+
+        (legacy,) = repository.find_all()
+        assert legacy.description == 'Legacy achievement.'
+        assert legacy.category is None
+        # The migrated schema accepts categorized entries alongside the legacy row.
+        repository.save(Score(description='New achievement.', category='Engineering'))
+        assert [score.category for score in repository.find_all()] == [None, 'Engineering']
 
     def test_delete_removes_entry_and_returns_it(self, tmp_path: Path) -> None:
         """delete() removes the matching row and returns the deleted entry, leaving the others intact."""
