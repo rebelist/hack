@@ -153,6 +153,21 @@ class TestConsoleCommands:
         assert harness.create_ticket.call_args.kwargs == {'dry_run': True}
         assert 'Dry run' in result.stdout
 
+    def test_jira_ticket_command_prompts_when_description_omitted(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack jira ticket` with no description prompts for it, then dispatches the entered text."""
+        ticket = Ticket(key='WS-1', summary='S', kind='Bug', description='D')
+        harness.create_ticket.return_value = ticket
+
+        result = cli_runner.invoke(console_module.app, ['jira', 'ticket'], input='fix login flow\n')
+
+        assert result.exit_code == 0
+        harness.create_ticket.assert_called_once()
+        assert harness.create_ticket.call_args.args[0] == 'fix login flow'
+        assert harness.create_ticket.call_args.kwargs == {'dry_run': False}
+        assert 'WS-1' in result.stdout
+
     def test_git_branch_command_dispatches_to_container(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
         """`hack git branch WS-120` invokes the checkout command and prints its output."""
         harness.git_checkout_branch.return_value = 'feature/WS-120-fix'
@@ -199,6 +214,20 @@ class TestConsoleCommands:
         assert 'Dry run' in result.stdout
         assert 'WS-1 Fix login' in result.stdout
 
+    def test_git_commit_command_prompts_when_description_omitted(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack git commit` with no description prompts for it, then dispatches the entered text."""
+        harness.git_commit.return_value = '[feature/WS-1] WS-1 Fix'
+
+        result = cli_runner.invoke(console_module.app, ['git', 'commit'], input='fix login\n')
+
+        assert result.exit_code == 0
+        harness.git_commit.assert_called_once()
+        assert harness.git_commit.call_args.args[0] == 'fix login'
+        assert harness.git_commit.call_args.kwargs == {'dry_run': False}
+        assert 'WS-1 Fix' in result.stdout
+
     def test_score_save_command_dispatches_to_container(self, cli_runner: CliRunner, harness: _ConsoleHarness) -> None:
         """`hack score save "..."` invokes the save command and prints the stored entry."""
         harness.score_save.return_value = Score(description='Stabilized the deployment pipeline.')
@@ -221,6 +250,20 @@ class TestConsoleCommands:
         assert harness.score_save.call_args.kwargs == {'dry_run': True}
         assert 'Dry run' in result.stdout
         assert 'Mentored two engineers.' in result.stdout
+
+    def test_score_save_command_prompts_when_description_omitted(
+        self, cli_runner: CliRunner, harness: _ConsoleHarness
+    ) -> None:
+        """`hack score save` with no description prompts for it, then dispatches the entered text."""
+        harness.score_save.return_value = Score(description='Stabilized the deployment pipeline.')
+
+        result = cli_runner.invoke(console_module.app, ['score', 'save'], input='stabilized the deploy pipeline\n')
+
+        assert result.exit_code == 0
+        harness.score_save.assert_called_once()
+        assert harness.score_save.call_args.args[0] == 'stabilized the deploy pipeline'
+        assert harness.score_save.call_args.kwargs == {'dry_run': False}
+        assert 'Stabilized the deployment pipeline.' in result.stdout
 
     def test_score_export_command_dispatches_to_container(
         self, cli_runner: CliRunner, harness: _ConsoleHarness

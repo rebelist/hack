@@ -9,7 +9,7 @@ from rich.markdown import Markdown
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
-from typer import Argument, Context, Exit, Option, Typer, confirm, prompt  # type: ignore
+from typer import Argument, Context, Exit, Option, Typer, colors, confirm, prompt, style
 
 from rebelist.hack.config.container import Container
 from rebelist.hack.config.settings import Settings, SettingsError, YamlSettingsSource
@@ -134,14 +134,16 @@ def diagnose_command(context: Context) -> None:
 @jira.command(name='ticket')
 def jira_ticket_command(
     context: Context,
-    description: Annotated[str, Argument(help='Ticket description (use quotes for multiple words).')],
+    description: Annotated[str | None, Argument(help='Ticket description (use quotes for multiple words).')] = None,
     dry_run: Annotated[bool, Option('--dry-run', help='Render the ticket without creating it in Jira.')] = False,
 ) -> None:
     """Create a Jira ticket from a natural language description. The type is inferred from a predefined set."""
     state: ApplicationState = context.obj
+    styled_prompt = style('Enter the ticket description', fg=colors.BRIGHT_CYAN)
+    text: str = description if description is not None else prompt(f'{styled_prompt}')
 
     with console.status('[grey58]Outsourcing clarity to a neural network...[/grey58]', spinner='dots'):
-        ticket = state.container.create_ticket_command(description, dry_run=dry_run)
+        ticket = state.container.create_ticket_command(text, dry_run=dry_run)
 
     if dry_run:
         console.print('[tan]Dry run — no ticket created![/tan]')
@@ -151,7 +153,7 @@ def jira_ticket_command(
 
         table.add_row('Summary', ticket.summary)
         table.add_row('Kind', ticket.kind)
-        table.add_row('Description', Markdown(ticket.description, justify='left'))
+        table.add_row('Description', Markdown(str(ticket.description), justify='left'))
 
         console.print(table)
         return
@@ -180,14 +182,16 @@ def git_checkout_branch_command(
 @git.command(name='commit')
 def git_commit_command(
     context: Context,
-    description: Annotated[str, Argument(help='Commit message description')],
+    description: Annotated[str | None, Argument(help='Commit message description')] = None,
     dry_run: Annotated[bool, Option('--dry-run', help='Print the rendered commit message without committing.')] = False,
 ) -> None:
     """Perform a commit on the current git repository."""
     state: ApplicationState = context.obj
+    styled_prompt = style('Enter the commit description', fg=colors.BRIGHT_CYAN)
+    text: str = description if description is not None else prompt(f'{styled_prompt}')
 
     with console.status('[grey58]Compressing human chaos into a commit message...[/grey58]', spinner='dots'):
-        output = state.container.git_commit_command(description, dry_run=dry_run)
+        output = state.container.git_commit_command(text, dry_run=dry_run)
 
     if dry_run:
         console.print('[tan]Dry run — no commit created.[/tan]')
@@ -197,14 +201,16 @@ def git_commit_command(
 @score.command(name='save')
 def score_save_command(
     context: Context,
-    description: Annotated[str, Argument(help='What you accomplished (use quotes for multiple words).')],
+    description: Annotated[str | None, Argument(help='What you accomplished (use quotes for multiple words).')] = None,
     dry_run: Annotated[bool, Option('--dry-run', help='Show the cleaned entry without saving it.')] = False,
 ) -> None:
     """Save an achievement to your score log. The entry is lightly cleaned up by an LLM before storing."""
     state: ApplicationState = context.obj
+    styled_prompt = style('Enter the achievement', fg=colors.BRIGHT_CYAN)
+    text: str = description if description is not None else prompt(f'{styled_prompt}')
 
     with console.status('[grey58]Polishing your humble brag...[/grey58]', spinner='dots'):
-        saved = state.container.score_save_command(description, dry_run=dry_run)
+        saved = state.container.score_save_command(text, dry_run=dry_run)
 
     if dry_run:
         console.print('[tan]Dry run — nothing saved.[/tan]')
@@ -220,7 +226,7 @@ def score_export_command(
     file: Annotated[Path, Argument(help='Destination markdown file, e.g. score-log.md.')],
     dry_run: Annotated[bool, Option('--dry-run', help='Render the score log without writing the file.')] = False,
 ) -> None:
-    """Export every achievement as a categorized, LLM-formatted score log markdown file."""
+    """Export every achievement as a categorized, LLM-formatted score log Markdown file."""
     state: ApplicationState = context.obj
 
     with console.status('[grey58]Spinning a year of wins into a brag...[/grey58]', spinner='dots'):

@@ -43,7 +43,7 @@ jobs:
           python-version: '3.14'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
         run: |
@@ -86,7 +86,7 @@ jobs:
           uv run pytest --cov=src/rebelist/hack --no-cov-on-fail --cov-report xml
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           report_type: coverage
           token: ${{ secrets.CODECOV_TOKEN }}
